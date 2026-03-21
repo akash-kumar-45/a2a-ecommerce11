@@ -1,0 +1,396 @@
+#pragma version 11
+#pragma typetrack false
+
+// @algorandfoundation/algorand-typescript/arc4/index.d.ts::Contract.approvalProgram() -> uint64:
+main:
+    intcblock 1 0 32 40
+    bytecblock "commitCount" "revealCount" "c" 0x151f7c75 "admin"
+    txn ApplicationID
+    bnz main_after_if_else@2
+    // contracts/ZKCommitment.algo.ts:35
+    // commitCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_0 // "commitCount"
+    intc_1 // 0
+    app_global_put
+    // contracts/ZKCommitment.algo.ts:36
+    // revealCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_1 // "revealCount"
+    intc_1 // 0
+    app_global_put
+
+main_after_if_else@2:
+    // contracts/ZKCommitment.algo.ts:33
+    // export class ZKCommitment extends Contract {
+    pushbytes 0x2487c32c // method "deleteApplication()void"
+    txna ApplicationArgs 0
+    match main_deleteApplication_route@4
+
+main_switch_case_next@5:
+    // contracts/ZKCommitment.algo.ts:33
+    // export class ZKCommitment extends Contract {
+    txn OnCompletion
+    !
+    assert // OnCompletion must be NoOp
+    txn ApplicationID
+    bz main_create_NoOp@14
+    pushbytess 0x80492573 0x73870492 0x94ed7086 0x0ddbcb6d 0x3155e553 0xc1723e0b // method "commit(byte[32])void", method "reveal(byte[32],byte[])void", method "getStatus(byte[32])uint64", method "getCommitter(byte[32])address", method "getCommitCount()uint64", method "getRevealCount()uint64"
+    txna ApplicationArgs 0
+    match commit reveal getStatus getCommitter getCommitCount getRevealCount
+    err
+
+main_create_NoOp@14:
+    // contracts/ZKCommitment.algo.ts:33
+    // export class ZKCommitment extends Contract {
+    pushbytes 0xb8447b36 // method "createApplication()void"
+    txna ApplicationArgs 0
+    match createApplication
+    err
+
+main_deleteApplication_route@4:
+    // contracts/ZKCommitment.algo.ts:114
+    // @abimethod({ allowActions: "DeleteApplication" })
+    txn OnCompletion
+    pushint 5 // DeleteApplication
+    ==
+    txn ApplicationID
+    &&
+    assert // OnCompletion must be DeleteApplication && can only call when not creating
+    b deleteApplication
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.createApplication[routing]() -> void:
+createApplication:
+    // contracts/ZKCommitment.algo.ts:34
+    // admin = GlobalState<Account>();
+    bytec 4 // "admin"
+    // contracts/ZKCommitment.algo.ts:42
+    // this.admin.value = Txn.sender;
+    txn Sender
+    app_global_put
+    // contracts/ZKCommitment.algo.ts:40
+    // @abimethod({ allowActions: "NoOp", onCreate: "require" })
+    intc_0 // 1
+    return
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.commit[routing]() -> void:
+commit:
+    // contracts/ZKCommitment.algo.ts:50
+    // public commit(commitmentHash: bytes<32>): void {
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    // contracts/ZKCommitment.algo.ts:38
+    // commitments = BoxMap<bytes<32>, CommitmentRecord>({ keyPrefix: "c" });
+    bytec_2 // "c"
+    swap
+    concat
+    // contracts/ZKCommitment.algo.ts:51
+    // assert(!this.commitments(commitmentHash).exists, "Commitment already exists");
+    dup
+    box_len
+    bury 1
+    !
+    assert // Commitment already exists
+    // contracts/ZKCommitment.algo.ts:54
+    // committer: Txn.sender,
+    txn Sender
+    // contracts/ZKCommitment.algo.ts:55
+    // createdRound: Uint64(0),
+    intc_1 // 0
+    // contracts/ZKCommitment.algo.ts:53-57
+    // const record: CommitmentRecord = {
+    //   committer: Txn.sender,
+    //   createdRound: Uint64(0),
+    //   isRevealed: Uint64(0),
+    // };
+    itob
+    swap
+    dig 1
+    concat
+    swap
+    concat
+    // contracts/ZKCommitment.algo.ts:58
+    // this.commitments(commitmentHash).value = clone(record);
+    box_put
+    // contracts/ZKCommitment.algo.ts:59
+    // this.commitCount.value = this.commitCount.value + Uint64(1);
+    intc_1 // 0
+    // contracts/ZKCommitment.algo.ts:35
+    // commitCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_0 // "commitCount"
+    // contracts/ZKCommitment.algo.ts:59
+    // this.commitCount.value = this.commitCount.value + Uint64(1);
+    app_global_get_ex
+    assert // check GlobalState exists
+    intc_0 // 1
+    +
+    // contracts/ZKCommitment.algo.ts:35
+    // commitCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_0 // "commitCount"
+    // contracts/ZKCommitment.algo.ts:59
+    // this.commitCount.value = this.commitCount.value + Uint64(1);
+    swap
+    app_global_put
+    // contracts/ZKCommitment.algo.ts:50
+    // public commit(commitmentHash: bytes<32>): void {
+    intc_0 // 1
+    return
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.reveal[routing]() -> void:
+reveal:
+    // contracts/ZKCommitment.algo.ts:67
+    // public reveal(commitmentHash: bytes<32>, preimage: bytes): void {
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    txna ApplicationArgs 2
+    dup
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    pushint 2 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    extract 2 0
+    // contracts/ZKCommitment.algo.ts:38
+    // commitments = BoxMap<bytes<32>, CommitmentRecord>({ keyPrefix: "c" });
+    bytec_2 // "c"
+    dig 2
+    concat
+    // contracts/ZKCommitment.algo.ts:68
+    // assert(this.commitments(commitmentHash).exists, "Commitment not found");
+    dup
+    box_len
+    bury 1
+    assert // Commitment not found
+    // contracts/ZKCommitment.algo.ts:70
+    // const record = clone(this.commitments(commitmentHash).value);
+    dup
+    box_get
+    pop
+    // contracts/ZKCommitment.algo.ts:71
+    // assert(record.isRevealed === Uint64(0), "Already revealed");
+    intc_3 // 40
+    extract_uint64
+    !
+    assert // Already revealed
+    // contracts/ZKCommitment.algo.ts:73
+    // const computed: bytes<32> = op.sha256(preimage);
+    swap
+    sha256
+    // contracts/ZKCommitment.algo.ts:74
+    // assert(computed === commitmentHash, "SHA-256 mismatch: preimage does not match commitment");
+    uncover 2
+    ==
+    assert // SHA-256 mismatch: preimage does not match commitment
+    // contracts/ZKCommitment.algo.ts:77
+    // updated.isRevealed = Uint64(1);
+    intc_0 // 1
+    itob
+    // contracts/ZKCommitment.algo.ts:77-78
+    // updated.isRevealed = Uint64(1);
+    // this.commitments(commitmentHash).value = clone(updated);
+    intc_3 // 40
+    swap
+    box_replace
+    // contracts/ZKCommitment.algo.ts:79
+    // this.revealCount.value = this.revealCount.value + Uint64(1);
+    intc_1 // 0
+    // contracts/ZKCommitment.algo.ts:36
+    // revealCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_1 // "revealCount"
+    // contracts/ZKCommitment.algo.ts:79
+    // this.revealCount.value = this.revealCount.value + Uint64(1);
+    app_global_get_ex
+    assert // check GlobalState exists
+    intc_0 // 1
+    +
+    // contracts/ZKCommitment.algo.ts:36
+    // revealCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_1 // "revealCount"
+    // contracts/ZKCommitment.algo.ts:79
+    // this.revealCount.value = this.revealCount.value + Uint64(1);
+    swap
+    app_global_put
+    // contracts/ZKCommitment.algo.ts:67
+    // public reveal(commitmentHash: bytes<32>, preimage: bytes): void {
+    intc_0 // 1
+    return
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.getStatus[routing]() -> void:
+getStatus:
+    // contracts/ZKCommitment.algo.ts:86
+    // @abimethod({ readonly: true })
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    // contracts/ZKCommitment.algo.ts:38
+    // commitments = BoxMap<bytes<32>, CommitmentRecord>({ keyPrefix: "c" });
+    bytec_2 // "c"
+    swap
+    concat
+    dup
+    // contracts/ZKCommitment.algo.ts:88
+    // if (!this.commitments(commitmentHash).exists) {
+    box_len
+    bury 1
+    bnz getStatus_after_if_else@3
+    // contracts/ZKCommitment.algo.ts:89
+    // return Uint64(0);
+    intc_1 // 0
+
+getStatus_after_inlined_contracts/ZKCommitment.algo.ts::ZKCommitment.getStatus@6:
+    // contracts/ZKCommitment.algo.ts:86
+    // @abimethod({ readonly: true })
+    itob
+    bytec_3 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_0 // 1
+    return
+
+getStatus_after_if_else@3:
+    // contracts/ZKCommitment.algo.ts:91
+    // const record = clone(this.commitments(commitmentHash).value);
+    dup
+    box_get
+    assert // Box must have value
+    // contracts/ZKCommitment.algo.ts:92
+    // if (record.isRevealed === Uint64(1)) {
+    intc_3 // 40
+    extract_uint64
+    intc_0 // 1
+    ==
+    bz getStatus_after_if_else@5
+    // contracts/ZKCommitment.algo.ts:93
+    // return Uint64(2);
+    pushint 2 // 2
+    // contracts/ZKCommitment.algo.ts:86
+    // @abimethod({ readonly: true })
+    b getStatus_after_inlined_contracts/ZKCommitment.algo.ts::ZKCommitment.getStatus@6
+
+getStatus_after_if_else@5:
+    // contracts/ZKCommitment.algo.ts:95
+    // return Uint64(1);
+    intc_0 // 1
+    // contracts/ZKCommitment.algo.ts:86
+    // @abimethod({ readonly: true })
+    b getStatus_after_inlined_contracts/ZKCommitment.algo.ts::ZKCommitment.getStatus@6
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.getCommitter[routing]() -> void:
+getCommitter:
+    // contracts/ZKCommitment.algo.ts:98
+    // @abimethod({ readonly: true })
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 32
+    ==
+    assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
+    // contracts/ZKCommitment.algo.ts:38
+    // commitments = BoxMap<bytes<32>, CommitmentRecord>({ keyPrefix: "c" });
+    bytec_2 // "c"
+    swap
+    concat
+    // contracts/ZKCommitment.algo.ts:100
+    // assert(this.commitments(commitmentHash).exists, "Commitment not found");
+    dup
+    box_len
+    bury 1
+    assert // Commitment not found
+    // contracts/ZKCommitment.algo.ts:101
+    // return clone(this.commitments(commitmentHash).value).committer;
+    box_get
+    pop
+    extract 0 32
+    // contracts/ZKCommitment.algo.ts:98
+    // @abimethod({ readonly: true })
+    bytec_3 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_0 // 1
+    return
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.getCommitCount[routing]() -> void:
+getCommitCount:
+    // contracts/ZKCommitment.algo.ts:106
+    // return this.commitCount.value;
+    intc_1 // 0
+    // contracts/ZKCommitment.algo.ts:35
+    // commitCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_0 // "commitCount"
+    // contracts/ZKCommitment.algo.ts:106
+    // return this.commitCount.value;
+    app_global_get_ex
+    assert // check GlobalState exists
+    // contracts/ZKCommitment.algo.ts:104
+    // @abimethod({ readonly: true })
+    itob
+    bytec_3 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_0 // 1
+    return
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.getRevealCount[routing]() -> void:
+getRevealCount:
+    // contracts/ZKCommitment.algo.ts:111
+    // return this.revealCount.value;
+    intc_1 // 0
+    // contracts/ZKCommitment.algo.ts:36
+    // revealCount = GlobalState<uint64>({ initialValue: Uint64(0) });
+    bytec_1 // "revealCount"
+    // contracts/ZKCommitment.algo.ts:111
+    // return this.revealCount.value;
+    app_global_get_ex
+    assert // check GlobalState exists
+    // contracts/ZKCommitment.algo.ts:109
+    // @abimethod({ readonly: true })
+    itob
+    bytec_3 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_0 // 1
+    return
+
+
+// contracts/ZKCommitment.algo.ts::ZKCommitment.deleteApplication[routing]() -> void:
+deleteApplication:
+    // contracts/ZKCommitment.algo.ts:116
+    // assertMatch(Txn, { sender: this.admin.value });
+    txn Sender
+    intc_1 // 0
+    // contracts/ZKCommitment.algo.ts:34
+    // admin = GlobalState<Account>();
+    bytec 4 // "admin"
+    // contracts/ZKCommitment.algo.ts:116
+    // assertMatch(Txn, { sender: this.admin.value });
+    app_global_get_ex
+    assert // check GlobalState exists
+    ==
+    assert // assert target is match for conditions
+    // contracts/ZKCommitment.algo.ts:114
+    // @abimethod({ allowActions: "DeleteApplication" })
+    intc_0 // 1
+    return
