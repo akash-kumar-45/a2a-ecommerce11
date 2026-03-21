@@ -1,13 +1,36 @@
 import { AlgorandClient, algo } from "@algorandfoundation/algokit-utils";
+import algosdk from "algosdk";
 import type { EscrowState } from "@/lib/agents/types";
+
+export type NetworkMode = "localnet" | "testnet";
+
+export function getNetworkMode(): NetworkMode {
+  const net = process.env.ALGORAND_NETWORK?.toLowerCase();
+  return net === "testnet" ? "testnet" : "localnet";
+}
+
+export function isTestnet(): boolean {
+  return getNetworkMode() === "testnet";
+}
 
 let algorandClient: AlgorandClient | null = null;
 
 export function getClient(): AlgorandClient {
   if (!algorandClient) {
-    algorandClient = AlgorandClient.defaultLocalNet();
+    if (isTestnet()) {
+      algorandClient = AlgorandClient.testNet();
+    } else {
+      algorandClient = AlgorandClient.defaultLocalNet();
+    }
   }
   return algorandClient;
+}
+
+export function getIndexer(): algosdk.Indexer {
+  if (isTestnet()) {
+    return new algosdk.Indexer("", "https://testnet-idx.algonode.cloud", "");
+  }
+  return new algosdk.Indexer("", "http://localhost", 8980);
 }
 
 interface AccountInfo {
@@ -45,38 +68,66 @@ export async function initAccounts(): Promise<{
   sellers: Record<string, AccountInfo>;
 }> {
   const algorand = getClient();
-  const dispenser = await algorand.account.localNetDispenser();
 
-  const buyerAccount = algorand.account.random();
-  algorand.setSignerFromAccount(buyerAccount);
-  await algorand.send.payment({
-    sender: dispenser.addr,
-    receiver: buyerAccount.addr,
-    amount: algo(5000),
-  });
+  let buyerAddr: string;
+
+  if (isTestnet() && process.env.AVM_PRIVATE_KEY) {
+    const secretKey = Buffer.from(process.env.AVM_PRIVATE_KEY, "base64");
+    const account = algosdk.mnemonicToSecretKey(
+      algosdk.secretKeyToMnemonic(secretKey)
+    );
+    buyerAddr = account.addr.toString();
+    algorand.setSignerFromAccount(account);
+  } else {
+    const dispenser = await algorand.account.localNetDispenser();
+    const buyerAccount = algorand.account.random();
+    algorand.setSignerFromAccount(buyerAccount);
+    await algorand.send.payment({
+      sender: dispenser.addr,
+      receiver: buyerAccount.addr,
+      amount: algo(5000),
+    });
+    buyerAddr = buyerAccount.addr.toString();
+  }
 
   const sellerNames = ["cloudmax", "datavault", "quickapi", "bharatcompute", "securehost"];
   const sellerAccounts: Record<string, AccountInfo> = {};
   const sellerAddrs: Record<string, string> = {};
 
-  for (const name of sellerNames) {
-    const sellerAccount = algorand.account.random();
-    algorand.setSignerFromAccount(sellerAccount);
-    await algorand.send.payment({
-      sender: dispenser.addr,
-      receiver: sellerAccount.addr,
-      amount: algo(100),
-    });
-    const bal = await getBalance(sellerAccount.addr.toString());
-    sellerAccounts[name] = { address: sellerAccount.addr.toString(), balance: bal };
-    sellerAddrs[name] = sellerAccount.addr.toString();
+  if (isTestnet()) {
+    for (const name of sellerNames) {
+      const sellerAccount = algorand.account.random();
+      algorand.setSignerFromAccount(sellerAccount);
+      await algorand.send.payment({
+        sender: buyerAddr,
+        receiver: sellerAccount.addr,
+        amount: algo(0.5),
+      });
+      const bal = await getBalance(sellerAccount.addr.toString());
+      sellerAccounts[name] = { address: sellerAccount.addr.toString(), balance: bal };
+      sellerAddrs[name] = sellerAccount.addr.toString();
+    }
+  } else {
+    const dispenser = await algorand.account.localNetDispenser();
+    for (const name of sellerNames) {
+      const sellerAccount = algorand.account.random();
+      algorand.setSignerFromAccount(sellerAccount);
+      await algorand.send.payment({
+        sender: dispenser.addr,
+        receiver: sellerAccount.addr,
+        amount: algo(100),
+      });
+      const bal = await getBalance(sellerAccount.addr.toString());
+      sellerAccounts[name] = { address: sellerAccount.addr.toString(), balance: bal };
+      sellerAddrs[name] = sellerAccount.addr.toString();
+    }
   }
 
-  const buyerBal = await getBalance(buyerAccount.addr.toString());
-  storedAccounts = { buyerAddr: buyerAccount.addr.toString(), sellerAddrs };
+  const buyerBal = await getBalance(buyerAddr);
+  storedAccounts = { buyerAddr, sellerAddrs };
 
   return {
-    buyer: { address: buyerAccount.addr.toString(), balance: buyerBal },
+    buyer: { address: buyerAddr, balance: buyerBal },
     sellers: sellerAccounts,
   };
 }

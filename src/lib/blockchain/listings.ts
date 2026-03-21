@@ -1,5 +1,6 @@
-import { getClient, getStoredAccounts } from "./algorand";
+import { getClient, getStoredAccounts, getIndexer } from "./algorand";
 import { algo } from "@algorandfoundation/algokit-utils";
+import { createZKCommitment } from "./zk";
 import type { OnChainListing } from "@/lib/agents/types";
 
 const LISTING_PREFIX = "a2a-listing:";
@@ -11,17 +12,16 @@ interface ListingData {
   seller: string;
   description: string;
   timestamp: number;
-  zkProof?: string;
+  zkCommitment?: string;
 }
 
-const SEED_LISTINGS: ListingData[] = [
+const SEED_LISTINGS: Omit<ListingData, "timestamp" | "zkCommitment">[] = [
   {
     type: "cloud-storage",
     service: "CloudMax India Enterprise Storage",
     price: 90,
     seller: "cloudmax",
     description: "Enterprise-grade cloud storage with Mumbai & Chennai data centers. 99.99% uptime, end-to-end encryption, SOC2 compliant.",
-    timestamp: Date.now(),
   },
   {
     type: "cloud-storage",
@@ -29,7 +29,6 @@ const SEED_LISTINGS: ListingData[] = [
     price: 85,
     seller: "datavault",
     description: "Affordable cloud storage for Indian SMEs. Auto-scaling, pay-as-you-go with Hyderabad servers.",
-    timestamp: Date.now(),
   },
   {
     type: "api-access",
@@ -37,7 +36,6 @@ const SEED_LISTINGS: ListingData[] = [
     price: 50,
     seller: "quickapi",
     description: "High-performance API gateway with rate limiting, caching, analytics. Built for fintech & e-commerce.",
-    timestamp: Date.now(),
   },
   {
     type: "compute",
@@ -45,7 +43,6 @@ const SEED_LISTINGS: ListingData[] = [
     price: 120,
     seller: "bharatcompute",
     description: "NVIDIA A100 GPU clusters in Pune for ML workloads. Per-minute billing, spot pricing available.",
-    timestamp: Date.now(),
   },
   {
     type: "hosting",
@@ -53,9 +50,14 @@ const SEED_LISTINGS: ListingData[] = [
     price: 70,
     seller: "securehost",
     description: "Managed hosting with DDoS protection, auto-SSL, and CDN. Ideal for Indian startups.",
-    timestamp: Date.now(),
   },
 ];
+
+const sellerSecrets = new Map<string, string>();
+
+export function getSellerSecret(seller: string): string | undefined {
+  return sellerSecrets.get(seller);
+}
 
 export async function postListingsOnChain(): Promise<string[]> {
   const algorand = getClient();
@@ -68,8 +70,14 @@ export async function postListingsOnChain(): Promise<string[]> {
     const sellerAddr = accounts.sellerAddrs[listing.seller];
     if (!sellerAddr) continue;
 
-    const zkProof = generateSimpleZKProof(listing.seller, listing.price);
-    const noteData: ListingData = { ...listing, zkProof, timestamp: Date.now() };
+    const zk = createZKCommitment(listing.seller, listing.price, listing.description);
+    sellerSecrets.set(listing.seller, zk.secret);
+
+    const noteData: ListingData = {
+      ...listing,
+      zkCommitment: zk.commitment,
+      timestamp: Date.now(),
+    };
     const noteStr = LISTING_PREFIX + JSON.stringify(noteData);
 
     const result = await algorand.send.payment({
@@ -86,7 +94,7 @@ export async function postListingsOnChain(): Promise<string[]> {
 }
 
 export async function fetchListingsFromChain(): Promise<OnChainListing[]> {
-  const algorand = getClient();
+  const indexer = getIndexer();
   const accounts = getStoredAccounts();
   if (!accounts) throw new Error("Accounts not initialized");
 
@@ -95,7 +103,7 @@ export async function fetchListingsFromChain(): Promise<OnChainListing[]> {
 
   for (const addr of allAddresses) {
     try {
-      const searchResult = await algorand.client.indexer
+      const searchResult = await indexer
         .searchForTransactions()
         .address(addr)
         .notePrefix(Buffer.from(LISTING_PREFIX).toString("base64"))
@@ -123,7 +131,7 @@ export async function fetchListingsFromChain(): Promise<OnChainListing[]> {
             seller: data.seller,
             description: data.description,
             timestamp: data.timestamp,
-            zkProof: data.zkProof,
+            zkCommitment: data.zkCommitment,
             round: Number(txn.confirmedRound ?? 0),
           });
         } catch {
@@ -151,15 +159,4 @@ export function filterListings(
       l.type.includes(normalized.split("-")[0]);
     return typeMatch && l.price <= maxBudget;
   });
-}
-
-function generateSimpleZKProof(seller: string, price: number): string {
-  const claim = `${seller}:${price}:${Date.now()}`;
-  let hash = 0;
-  for (let i = 0; i < claim.length; i++) {
-    const chr = claim.charCodeAt(i);
-    hash = ((hash << 5) - hash) + chr;
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(16).padStart(8, "0");
 }

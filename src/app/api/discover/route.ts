@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const listingSummary = filtered
       .map(
         (l) =>
-          `• **${l.seller}** — "${l.service}" at **${l.price} ALGO** (TX: \`${l.txId.slice(0, 16)}...\`, Round: ${l.round})${l.zkProof ? " [ZK]" : ""}`
+          `• **${l.seller}** — "${l.service}" at **${l.price} ALGO** (TX: \`${l.txId.slice(0, 16)}...\`, Round: ${l.round})${l.zkCommitment ? " [ZK ✓]" : ""}`
       )
       .join("\n");
 

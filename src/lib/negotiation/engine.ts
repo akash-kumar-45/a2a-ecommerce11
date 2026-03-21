@@ -7,7 +7,8 @@ import type {
 } from "@/lib/agents/types";
 import { createOffer, createCounterOffer } from "@/lib/agents/buyer-agent";
 import { sellerRespond } from "@/lib/agents/seller-agent";
-import { verifyZKProof } from "@/lib/blockchain/zk";
+import { verifyZKCommitment } from "@/lib/blockchain/zk";
+import { getSellerSecret } from "@/lib/blockchain/listings";
 import { createAction } from "@/lib/a2a/messaging";
 
 const MAX_ROUNDS = 2;
@@ -23,16 +24,24 @@ async function negotiateWithListing(
   let lastSellerPrice = listing.price;
 
   let zkVerified = false;
-  if (listing.zkProof) {
-    const proof = verifyZKProof(listing.zkProof, listing.seller, listing.price);
-    zkVerified = proof.valid;
+  if (listing.zkCommitment) {
+    const secret = getSellerSecret(listing.seller);
+    if (secret) {
+      zkVerified = verifyZKCommitment(
+        listing.zkCommitment,
+        secret,
+        listing.seller,
+        listing.price,
+        listing.description
+      );
+    }
     actions.push(
       createAction(
         "buyer",
         "Buyer Agent",
         "verification",
-        `ZK Proof for **${listing.seller}**: ${zkVerified ? "Verified" : "Invalid"} (hash: \`${listing.zkProof}\`)`,
-        { zkVerified, hash: listing.zkProof }
+        `SHA-256 ZK for **${listing.seller}**: ${zkVerified ? "Verified ✓" : "Unverified"} (commitment: \`${listing.zkCommitment.slice(0, 24)}...\`)`,
+        { zkVerified, commitment: listing.zkCommitment }
       )
     );
   }

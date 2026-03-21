@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { initAccounts } from "@/lib/blockchain/algorand";
+import { initAccounts, getNetworkMode } from "@/lib/blockchain/algorand";
 import { postListingsOnChain } from "@/lib/blockchain/listings";
 import { createAction } from "@/lib/a2a/messaging";
 
 export async function POST() {
   try {
+    const network = getNetworkMode();
+    const networkLabel = network === "testnet" ? "Algorand TestNet" : "Algorand LocalNet";
+
     const actions = [
-      createAction("system", "Algorand", "transaction", "Connecting to Algorand LocalNet..."),
+      createAction("system", "Algorand", "transaction", `Connecting to ${networkLabel}...`),
     ];
 
     const accounts = await initAccounts();
@@ -15,7 +18,7 @@ export async function POST() {
         "system",
         "Algorand",
         "transaction",
-        `Accounts created on LocalNet:\n` +
+        `Accounts created on ${networkLabel}:\n` +
         `• **Buyer:** \`${accounts.buyer.address.slice(0, 12)}...${accounts.buyer.address.slice(-6)}\` (${accounts.buyer.balance.toFixed(2)} ALGO)\n` +
         `• **Sellers:** ${Object.keys(accounts.sellers).length} accounts funded`,
         { accounts }

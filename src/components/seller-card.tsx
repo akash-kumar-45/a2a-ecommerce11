@@ -23,9 +23,9 @@ export function ListingCard({ listing, negotiation, isSelected }: ListingCardPro
           <p className="text-[10px] text-zinc-500 mt-0.5">{listing.type}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {listing.zkProof && (
+          {listing.zkCommitment && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/15 text-purple-400">
-              ZK
+              ZK ✓
             </span>
           )}
           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/15 text-blue-400">

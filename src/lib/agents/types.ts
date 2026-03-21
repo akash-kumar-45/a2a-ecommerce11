@@ -7,7 +7,7 @@ export interface OnChainListing {
   seller: string;
   description: string;
   timestamp: number;
-  zkProof?: string;
+  zkCommitment?: string;
   round: number;
 }
 
@@ -45,13 +45,6 @@ export interface NegotiationSession {
   messages: X402Message[];
   zkVerified: boolean;
   rounds: number;
-}
-
-export interface ZKProof {
-  hash: string;
-  nonce: string;
-  claim: string;
-  valid: boolean;
 }
 
 export interface EscrowState {

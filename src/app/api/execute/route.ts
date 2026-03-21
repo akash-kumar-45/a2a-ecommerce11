@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         "buyer",
         "Buyer Agent",
         "transaction",
-        `Executing real payment on Algorand LocalNet...\n**${deal.finalPrice} ALGO** to **${deal.sellerName}** (\`${deal.sellerAddress.slice(0, 12)}...\`)`
+        `Executing real payment on Algorand...\n**${deal.finalPrice} ALGO** to **${deal.sellerName}** (\`${deal.sellerAddress.slice(0, 12)}...\`)`
       ),
     ];
 
