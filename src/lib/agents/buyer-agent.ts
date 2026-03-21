@@ -1,0 +1,78 @@
+import type { OnChainListing, X402Message, NegotiationSession, ParsedIntent } from "@/lib/agents/types";
+import { parseUserIntent } from "@/lib/ai/groq";
+import { createX402Message } from "@/lib/a2a/messaging";
+import { filterListings } from "@/lib/blockchain/listings";
+
+const BUYER_ID = "buyer-agent";
+
+export async function parseIntent(userMessage: string): Promise<ParsedIntent> {
+  return parseUserIntent(userMessage);
+}
+
+export function discoverFromListings(
+  listings: OnChainListing[],
+  intent: ParsedIntent
+): OnChainListing[] {
+  return filterListings(listings, intent.serviceType, intent.maxBudget);
+}
+
+export function createOffer(
+  listing: OnChainListing,
+  intent: ParsedIntent
+): { message: X402Message; offerPrice: number } {
+  const targetRatio = 0.65;
+  const offerPrice = Math.max(
+    Math.round(listing.price * (1 - 0.35)),
+    Math.round(Math.min(listing.price * targetRatio, intent.maxBudget * 0.7))
+  );
+
+  const message = createX402Message(
+    BUYER_ID,
+    listing.seller,
+    "offer",
+    listing.txId,
+    listing.service,
+    offerPrice,
+    `Offering ${offerPrice} ALGO for "${listing.service}". Looking for the best value within my budget.`,
+    1
+  );
+
+  return { message, offerPrice };
+}
+
+export function createCounterOffer(
+  listing: OnChainListing,
+  lastSellerPrice: number,
+  intent: ParsedIntent,
+  round: number
+): { message: X402Message; offerPrice: number; accepting: boolean } {
+  const gap = lastSellerPrice - Math.round(listing.price * 0.7);
+  const newOffer = Math.round(lastSellerPrice - gap * 0.3 * (1 / round));
+  const clampedOffer = Math.max(newOffer, Math.round(listing.price * 0.72));
+  const finalOffer = Math.min(clampedOffer, intent.maxBudget);
+
+  const accepting = Math.abs(finalOffer - lastSellerPrice) <= lastSellerPrice * 0.05;
+  const action: X402Message["action"] = accepting ? "accept" : "counter";
+
+  const message = createX402Message(
+    BUYER_ID,
+    listing.seller,
+    action,
+    listing.txId,
+    listing.service,
+    accepting ? lastSellerPrice : finalOffer,
+    accepting
+      ? `Accepted! ${lastSellerPrice} ALGO for "${listing.service}" is a fair deal.`
+      : `Counter-offering ${finalOffer} ALGO. That's a competitive price for this service.`,
+    round
+  );
+
+  return { message, offerPrice: accepting ? lastSellerPrice : finalOffer, accepting };
+}
+
+export function selectBestDeal(sessions: NegotiationSession[]): NegotiationSession | null {
+  const accepted = sessions.filter((s) => s.accepted);
+  if (accepted.length === 0) return null;
+  accepted.sort((a, b) => a.finalPrice - b.finalPrice);
+  return accepted[0];
+}
