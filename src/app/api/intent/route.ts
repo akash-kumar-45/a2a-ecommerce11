@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
         "buyer",
         "Buyer Agent",
         "result",
-        `Understood! Looking for **${intent.serviceType}** with a budget of **${intent.maxBudget} ALGO**.${intent.preferences.length > 0 ? ` Preferences: ${intent.preferences.join(", ")}` : ""}`,
+        `Understood! Looking for **${intent.serviceType}** with a budget of **${intent.maxBudget} ETH**.${intent.preferences.length > 0 ? ` Preferences: ${intent.preferences.join(", ")}` : ""}`,
         { intent }
       )
     );

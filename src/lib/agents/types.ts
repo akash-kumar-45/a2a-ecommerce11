@@ -1,4 +1,5 @@
 export interface OnChainListing {
+  id?: string;          // DB listing id (new)
   txId: string;
   sender: string;
   type: string;
@@ -9,6 +10,7 @@ export interface OnChainListing {
   timestamp: number;
   zkCommitment?: string;
   round: number;
+  sellerName?: string;  // convenience alias
 }
 
 export interface ParsedIntent {

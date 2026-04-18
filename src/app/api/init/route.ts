@@ -1,141 +1,72 @@
+/**
+ * /api/init — Ethereum-native initialization.
+ * Instead of creating Algorand accounts, we just seed example listings
+ * into the local JSON DB if none exist, then return a ready state.
+ */
 import { NextResponse } from "next/server";
-import algosdk from "@/lib/blockchain/algosdk-mock";
-import {
-  initAccounts,
-  getNetworkMode,
-  getStoredAccounts,
-  getBalance,
-} from "@/lib/blockchain/algorand";
-import { postListingsOnChain, fetchPublicListings } from "@/lib/blockchain/listings";
-import { seedAgentReputations } from "@/lib/blockchain/reputation";
+import { getAllListings, createListing } from "@/lib/db/listings-store";
 import { createAction } from "@/lib/a2a/messaging";
+import { createHash, randomBytes } from "crypto";
+
+const SEED_LISTINGS = [
+  { service: "100GB Cloud Storage", type: "cloud-storage", price: 0.08, description: "Encrypted S3-compatible storage, 99.9% uptime SLA", seller: "0xSeedAgent1" },
+  { service: "GPT-4 API Access", type: "api-access", price: 0.25, description: "Proxied OpenAI API key with 1M token limit", seller: "0xSeedAgent2" },
+  { service: "GPU Compute 8xA100", type: "gpu-compute", price: 0.95, description: "8x A100 80GB slot, 24hr lease, PyTorch pre-installed", seller: "0xSeedAgent3" },
+  { service: "Managed VPS Hosting", type: "hosting", price: 0.12, description: "4vCPU / 8GB RAM / 200GB SSD, auto-backups", seller: "0xSeedAgent4" },
+  { service: "Data Labelling API", type: "api-access", price: 0.18, description: "Automated image labelling with 95%+ accuracy guarantee", seller: "0xSeedAgent5" },
+];
+
+function zkCommit(seller: string, price: number, service: string): string {
+  const secret = randomBytes(8).toString("hex");
+  return createHash("sha256").update(`${secret}|${seller}|${price}|${service}`).digest("hex");
+}
 
 export async function POST() {
   try {
-    const network = getNetworkMode();
-    const networkLabel = network === "testnet" ? "Algorand TestNet" : "Algorand LocalNet";
     const actions = [
-      createAction("system", "Algorand", "transaction", `Connecting to ${networkLabel}...`),
+      createAction("system", "A2A TrustMesh", "transaction", "Initializing A2A system on Ethereum TestNet..."),
     ];
 
-    // ── Idempotency: skip account creation if already in memory ─────────────
-    const existingAccounts = getStoredAccounts();
-    if (existingAccounts) {
-      actions.push(
-        createAction("system", "Algorand", "transaction",
-          `Accounts already in memory — checking on-chain listings...`)
-      );
+    const existing = getAllListings();
 
-      const existingListings = await fetchPublicListings();
-
-      if (existingListings.length >= 5) {
-        // Fully initialized — nothing to do
-        const buyerBal = await getBalance(existingAccounts.buyerAddr);
-        actions.push(
-          createAction("system", "Algorand", "result",
-            `Already fully initialized.\n` +
-            `• **Buyer:** \`${existingAccounts.buyerAddr.slice(0, 12)}...\` (${buyerBal.toFixed(3)} ALGO)\n` +
-            `• **Sellers:** ${Object.keys(existingAccounts.sellerAddrs).join(", ")}\n` +
-            `• **On-chain listings:** ${existingListings.length} found — skipping re-seed.`)
-        );
-        return NextResponse.json({
-          success: true,
-          alreadyInitialized: true,
-          message: `${existingListings.length} listings already on-chain. Skipped re-init.`,
-          accounts: {
-            buyer: { address: existingAccounts.buyerAddr, balance: buyerBal },
-            sellers: Object.fromEntries(
-              Object.entries(existingAccounts.sellerAddrs).map(([k, v]) => [k, { address: v, balance: 0 }])
-            ),
-          },
-          listingTxIds: existingListings.map((l) => l.txId),
-          actions,
-        });
-      }
-
-      // Accounts exist but listings are gone — only post listings
+    if (existing.length >= SEED_LISTINGS.length) {
       actions.push(
-        createAction("system", "Algorand", "transaction",
-          `Accounts found but only ${existingListings.length} listings on-chain — re-posting...`)
+        createAction("system", "A2A TrustMesh", "result",
+          `**System already initialized.**\n• **${existing.length} listings** available in marketplace.\n• Ethereum wallet authentication active.`)
       );
-      const listingTxIds = await postListingsOnChain();
-      actions.push(
-        createAction("system", "Algorand", "result",
-          `**${listingTxIds.length} listings** re-posted on-chain.`,
-          { listingTxIds })
-      );
-      const buyerBal2 = await getBalance(existingAccounts.buyerAddr);
       return NextResponse.json({
         success: true,
-        onlyListingsPosted: true,
-        accounts: {
-          buyer: { address: existingAccounts.buyerAddr, balance: buyerBal2 },
-          sellers: Object.fromEntries(
-            Object.entries(existingAccounts.sellerAddrs).map(([k, v]) => [k, { address: v, balance: 0 }])
-          ),
-        },
-        listingTxIds,
+        alreadyInitialized: true,
+        listingCount: existing.length,
         actions,
       });
     }
 
-    // ── Fresh init ────────────────────────────────────────────────────────────
+    // Seed demo listings
     actions.push(
-      createAction("system", "Algorand", "transaction",
-        `Creating buyer + 5 seller accounts on ${networkLabel}...`)
+      createAction("system", "A2A TrustMesh", "transaction",
+        `Seeding ${SEED_LISTINGS.length} demo service listings into marketplace...`)
     );
 
-    const accounts = await initAccounts();
-    actions.push(
-      createAction("system", "Algorand", "transaction",
-        `Accounts ready on ${networkLabel}:\n` +
-        `• **Buyer:** \`${accounts.buyer.address.slice(0, 12)}...${accounts.buyer.address.slice(-6)}\` (${accounts.buyer.balance.toFixed(3)} ALGO)\n` +
-        `• **Sellers:** ${Object.keys(accounts.sellers).join(", ")}`,
-        { accounts }
-      )
-    );
-
-    // ── Post listings ─────────────────────────────────────────────────────────
-    actions.push(
-      createAction("system", "Algorand", "transaction",
-        "Posting 5 service listings on-chain via 0 ALGO transactions with ZK commitments...")
-    );
-    const listingTxIds = await postListingsOnChain();
-    actions.push(
-      createAction("system", "Algorand", "result",
-        `**${listingTxIds.length} listings** posted on-chain!\n` +
-        listingTxIds.map((tx, i) => `• Listing ${i + 1}: \`${tx.slice(0, 20)}...\``).join("\n"),
-        { listingTxIds }
-      )
-    );
-
-    // ── Seed reputations in background (non-blocking) ─────────────────────────
-    // Run fire-and-forget so init returns after listings are posted (~40s total)
-    if (process.env.AVM_PRIVATE_KEY) {
-      try {
-        const secretKey = Buffer.from(process.env.AVM_PRIVATE_KEY, "base64");
-        const acct = algosdk.mnemonicToSecretKey(algosdk.secretKeyToMnemonic(secretKey));
-        const buyerSk = acct.sk;
-        const buyerAddr = accounts.buyer.address;
-        seedAgentReputations(buyerAddr, buyerSk)
-          .then(() => { globalThis.__a2aReputationsSeeded = true; })
-          .catch((e) => console.error("[reputation] background seeding failed:", e));
-      } catch (e) {
-        console.error("[reputation] Could not start background seeding:", e);
-      }
+    const created = [];
+    for (const l of SEED_LISTINGS) {
+      const listing = createListing({
+        ...l,
+        zkCommitment: zkCommit(l.seller, l.price, l.service),
+        timestamp: Date.now() - Math.floor(Math.random() * 3_600_000), // random within last hr
+      });
+      created.push(listing);
     }
 
     actions.push(
-      createAction("system", "Algorand", "result",
-        "Reputation seeding started in background. Agents will be registered momentarily.")
+      createAction("system", "A2A TrustMesh", "result",
+        `**${created.length} demo listings seeded!**\n` +
+        created.map((l, i) => `• Listing ${i + 1}: **${l.service}** @ **${l.price} ETH** [ZK ✓]`).join("\n"))
     );
 
     return NextResponse.json({
       success: true,
-      accounts,
-      listingTxIds,
-      reputationResults: [],
-      reputationError: null,
+      listingCount: created.length,
       actions,
     });
   } catch (error) {

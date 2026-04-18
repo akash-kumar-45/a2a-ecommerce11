@@ -1,89 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import algosdk from "@/lib/blockchain/algosdk-mock";
+import { createListing } from "@/lib/db/listings-store";
 import { createHash, randomBytes } from "crypto";
-import { getClient } from "@/lib/blockchain/algorand";
-import { storeCredentials } from "@/lib/credentials";
 
 export async function POST(req: NextRequest) {
   try {
-    const {
-      senderAddress,
-      type,
+    const body = await req.json();
+    const { service, type, price, description, seller, username, password, notes, signature } = body;
+
+    if (!service || !type || !price || !seller) {
+      return NextResponse.json(
+        { error: "service, type, price, and seller (wallet address) are required" },
+        { status: 400 }
+      );
+    }
+
+    // Generate a ZK-style commitment hash as proof
+    const secret = randomBytes(16).toString("hex");
+    const zkCommitment = createHash("sha256")
+      .update(`${secret}|${seller}|${price}|${service}`)
+      .digest("hex");
+
+    const listing = createListing({
       service,
-      price,
-      description,
+      type: type ?? "cloud-storage",
+      price: parseFloat(price),
+      description: description ?? "",
+      seller,
       username,
       password,
-      productType,
-      notes,
-    } = await req.json();
-
-    if (!senderAddress || !type || !service || !price) {
-      return NextResponse.json(
-        { error: "senderAddress, type, service, price required" },
-        { status: 400 }
-      );
-    }
-
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: "username and password are required — they will be delivered to the buyer after payment" },
-        { status: 400 }
-      );
-    }
-
-    const secret   = randomBytes(32).toString("hex");
-    const preimage = `${secret}|${senderAddress}|${price}|${description ?? ""}`;
-    const commitment = createHash("sha256").update(preimage).digest("hex");
-
-    const noteData = {
-      type,
-      service,
-      price,
-      seller:      senderAddress,
-      description: description ?? "",
-      timestamp:   Date.now(),
-      zkCommitment: commitment,
-      hasCredentials: true, // flag so buyers know credentials are available
-      productType: productType ?? type,
-    };
-    const noteStr = "a2a-listing:" + JSON.stringify(noteData);
-
-    const algorand = getClient();
-    const algod    = algorand.client.algod;
-    const params   = await algod.getTransactionParams().do();
-
-    const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-      sender:   algosdk.Address.fromString(senderAddress),
-      receiver: algosdk.Address.fromString(senderAddress),
-      amount:   0,
-      note:     new TextEncoder().encode(noteStr),
-      suggestedParams: params,
-    });
-
-    const txId       = txn.txID();
-    const unsignedB64 = Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString("base64");
-
-    // Encrypt and store credentials — keyed by the pending TX ID.
-    // We also register by ZK commitment so we can look up before confirmation.
-    const keyHash = storeCredentials({
-      txId,
-      service,
-      sellerAddress: senderAddress,
-      price: Number(price),
-      credentials: { username, password, productType: productType ?? type, notes: notes ?? "" },
+      notes: notes ?? "",
+      signature,
+      zkCommitment,
+      timestamp: Date.now(),
     });
 
     return NextResponse.json({
-      unsignedTxn: unsignedB64,
-      txnId: txId,
-      zkSecret: secret,
-      zkCommitment: commitment,
-      keyHash,
-      listing:      { ...noteData, hasCredentials: true },
+      success: true,
+      listing: {
+        id: listing.id,
+        service: listing.service,
+        type: listing.type,
+        price: listing.price,
+        seller: listing.seller,
+        zkCommitment: listing.zkCommitment,
+        createdAt: listing.createdAt,
+      },
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Failed to build listing txn";
+    const msg = error instanceof Error ? error.message : "Failed to create listing";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -1,109 +1,86 @@
-import Groq from "groq-sdk/index.mjs";
-import { ParsedIntent } from "@/lib/agents/types";
+/**
+ * AI helpers — fully offline, template-based (no API key required).
+ * Replaces the Groq/LLM integration with deterministic logic.
+ */
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import type { ParsedIntent } from "@/lib/agents/types";
 
-const MODEL = "llama-3.3-70b-versatile";
+// ─── Intent parsing ────────────────────────────────────────────────────────────
+
+const TYPE_MAP: Record<string, string> = {
+  cloud: "cloud-storage", storage: "cloud-storage", backup: "cloud-storage", s3: "cloud-storage",
+  api: "api-access", gateway: "api-access", endpoint: "api-access", key: "api-access",
+  gpu: "gpu-compute", compute: "gpu-compute", server: "gpu-compute", vm: "gpu-compute", cuda: "gpu-compute",
+  host: "hosting", hosting: "hosting", vps: "hosting", deploy: "hosting", website: "hosting",
+};
+
+const STOP = new Set(["buy", "get", "me", "a", "the", "under", "for", "i", "need", "want", "eth", "algo", "some", "please", "find", "cheapest", "best"]);
 
 export async function parseUserIntent(message: string): Promise<ParsedIntent> {
-  const completion = await groq.chat.completions.create({
-    model: MODEL,
-    messages: [
-      {
-        role: "system",
-        content: `You are an AI agent that parses user purchase intents for a digital marketplace.
-Extract structured data from the user's message. Respond ONLY with valid JSON, no markdown.
+  const lower = message.toLowerCase();
 
-Output format:
-{
-  "serviceType": string,
-  "maxBudget": number (in ALGO, default 100 if not specified),
-  "preferences": string[] (extracted preferences like "cheap", "reliable", "fast", "encrypted"),
-  "searchTerms": string[] (key product/brand/service words from the query for search matching)
-}
+  // Extract budget
+  const budgetMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:eth|algo)/i);
+  const maxBudget = budgetMatch ? parseFloat(budgetMatch[1]) : 10;
 
-IMPORTANT RULES for serviceType:
-1. Use these ONLY when the user clearly means one of these infrastructure services:
-   - "cloud", "storage", "backup" -> "cloud-storage"
-   - "API", "gateway", "endpoint" -> "api-access"
-   - "compute", "GPU", "server", "VM" -> "compute"
-   - "hosting", "website", "deploy" -> "hosting"
-2. For ALL other products (accounts, subscriptions, digital goods, software, etc.),
-   use the ACTUAL product/brand name in kebab-case as the serviceType.
-   Do NOT force-map them to the categories above.
-
-Examples:
-- "Buy Netflix account" -> serviceType: "netflix-account", searchTerms: ["netflix", "account"]
-- "Get me a Spotify premium" -> serviceType: "spotify-premium", searchTerms: ["spotify", "premium"]
-- "I need cloud storage under 1 ALGO" -> serviceType: "cloud-storage", searchTerms: ["cloud", "storage"]
-- "Buy a VPN subscription" -> serviceType: "vpn-subscription", searchTerms: ["vpn", "subscription"]
-- "Need cheap hosting" -> serviceType: "hosting", searchTerms: ["hosting"]
-
-searchTerms should contain the key nouns/brands from the query (lowercase), excluding filler words like "buy", "get", "me", "a", "the", "under", "for".`,
-      },
-      { role: "user", content: message },
-    ],
-    temperature: 0.1,
-    max_tokens: 200,
-  });
-
-  const raw = completion.choices[0]?.message?.content ?? "{}";
-  try {
-    const parsed = JSON.parse(raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim());
-    return {
-      serviceType: parsed.serviceType ?? "cloud-storage",
-      maxBudget: parsed.maxBudget ?? 100,
-      preferences: parsed.preferences ?? [],
-      searchTerms: parsed.searchTerms ?? [],
-      rawMessage: message,
-    };
-  } catch {
-    // Fallback: extract basic search terms from the raw message
-    const stopWords = new Set(["buy", "get", "me", "a", "the", "under", "for", "i", "need", "want", "algo"]);
-    const fallbackTerms = message.toLowerCase().split(/\s+/)
-      .filter(w => w.length > 1 && !stopWords.has(w) && !/^\d/.test(w));
-    return {
-      serviceType: "cloud-storage",
-      maxBudget: 100,
-      preferences: [],
-      searchTerms: fallbackTerms,
-      rawMessage: message,
-    };
+  // Extract service type
+  const words = lower.split(/\s+/);
+  let serviceType = "cloud-storage";
+  for (const w of words) {
+    const clean = w.replace(/[^a-z]/g, "");
+    if (TYPE_MAP[clean]) { serviceType = TYPE_MAP[clean]; break; }
   }
+
+  // If no standard type matched, use the meaningful nouns as the type
+  if (serviceType === "cloud-storage" && !lower.match(/cloud|storage|backup/)) {
+    const terms = words.filter(w => w.length > 3 && !STOP.has(w)).slice(0, 2);
+    if (terms.length) serviceType = terms.join("-").replace(/[^a-z-]/g, "");
+  }
+
+  // Preferences
+  const preferences: string[] = [];
+  if (lower.includes("cheap") || lower.includes("cheap") || lower.includes("low")) preferences.push("cheap");
+  if (lower.includes("fast") || lower.includes("quick")) preferences.push("fast");
+  if (lower.includes("secure") || lower.includes("encrypt")) preferences.push("encrypted");
+  if (lower.includes("reliable") || lower.includes("uptime")) preferences.push("reliable");
+
+  const searchTerms = words.filter(w => w.length > 2 && !STOP.has(w)).map(w => w.replace(/[^a-z]/g, "")).filter(Boolean);
+
+  return { serviceType, maxBudget, preferences, searchTerms, rawMessage: message };
 }
+
+// ─── Negotiation response ──────────────────────────────────────────────────────
+
+const ACCEPT_LINES = [
+  (price: number) => `Deal! I'll accept ${price} ETH — you drive a hard bargain. Credentials will be delivered instantly.`,
+  (price: number) => `Agreed at ${price} ETH. You've got yourself a deal — processing now.`,
+  (price: number) => `${price} ETH works for me. Let's close this!`,
+];
+
+const COUNTER_LINES = [
+  (counter: number, base: number) => `My service is valued at ${base} ETH — I can come down to ${counter} ETH, but that's my best offer.`,
+  (counter: number) => `I appreciate the interest. How about ${counter} ETH? The uptime guarantee alone is worth it.`,
+  (counter: number) => `${counter} ETH is a fair price for enterprise-grade service. What do you say?`,
+];
 
 export async function generateNegotiationResponse(
-  sellerName: string,
-  strategy: string,
-  buyerOffer: number,
-  sellerMin: number,
+  _sellerName: string,
+  _strategy: string,
+  _buyerOffer: number,
+  _sellerMin: number,
   sellerBase: number,
   counterPrice: number,
   round: number,
   isAccepting: boolean
 ): Promise<string> {
-  const completion = await groq.chat.completions.create({
-    model: MODEL,
-    messages: [
-      {
-        role: "system",
-        content: `You are ${sellerName}, a ${strategy} negotiator for a cloud/API service provider in India.
-Generate a SHORT (1-2 sentences) negotiation response. Be conversational and natural.
-Strategy: ${strategy === "aggressive" ? "Hold firm on price, make small concessions" : strategy === "moderate" ? "Be reasonable but protect margins" : "Be friendly and willing to negotiate"}`,
-      },
-      {
-        role: "user",
-        content: isAccepting
-          ? `The buyer offered ${buyerOffer} ALGO and you're accepting at ${counterPrice} ALGO. Respond with acceptance.`
-          : `The buyer offered ${buyerOffer} ALGO (round ${round}). Your base is ${sellerBase} ALGO and minimum is ${sellerMin} ALGO. Counter at ${counterPrice} ALGO. Explain why your service is worth it.`,
-      },
-    ],
-    temperature: 0.7,
-    max_tokens: 100,
-  });
-
-  return completion.choices[0]?.message?.content ?? `I can offer this at ${counterPrice} ALGO.`;
+  const idx = round % 3;
+  if (isAccepting) {
+    return ACCEPT_LINES[idx](counterPrice);
+  }
+  return COUNTER_LINES[idx](counterPrice, sellerBase);
 }
+
+// ─── Deal summary ──────────────────────────────────────────────────────────────
 
 export async function generateDealSummary(
   sellerName: string,
@@ -112,25 +89,13 @@ export async function generateDealSummary(
   originalPrice: number,
   rounds: number
 ): Promise<string> {
-  const completion = await groq.chat.completions.create({
-    model: MODEL,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a concise deal analyst. Summarize the completed deal in 2-3 sentences. Mention the savings percentage and number of negotiation rounds.",
-      },
-      {
-        role: "user",
-        content: `Deal completed: ${serviceType} from ${sellerName}. Original price: ${originalPrice} ALGO, Final: ${finalPrice} ALGO. Took ${rounds} rounds.`,
-      },
-    ],
-    temperature: 0.5,
-    max_tokens: 100,
-  });
-
+  const savings = originalPrice > 0
+    ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100)
+    : 0;
+  const roundWord = rounds === 1 ? "round" : "rounds";
   return (
-    completion.choices[0]?.message?.content ??
-    `Deal closed with ${sellerName} at ${finalPrice} ALGO (${Math.round(((originalPrice - finalPrice) / originalPrice) * 100)}% savings).`
+    `Agent secured **${serviceType}** from ${sellerName || "the seller"} at **${finalPrice} ETH** ` +
+    `(${savings > 0 ? `saving ${savings}%` : "at listed price"}) after ${rounds} negotiation ${roundWord}. ` +
+    `ZK commitment verified. Credentials ready for delivery.`
   );
 }

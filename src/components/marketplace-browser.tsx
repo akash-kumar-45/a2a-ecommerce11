@@ -12,7 +12,7 @@ const SERVICE_TYPES = [
 ];
 
 function ListingRow({ listing, index }: { listing: OnChainListing; index: number }) {
-  const explorerUrl = `https://lora.algokit.io/testnet/transaction/${listing.txId}`;
+  const explorerUrl = `https://sepolia.etherscan.io/tx/${listing.txId}`;
   return (
     <div
       className="group border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 transition-all animate-fade-in-up"

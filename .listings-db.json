@@ -1,0 +1,87 @@
+[
+  {
+    "service": "gvgsdgsg",
+    "type": "cloud-storage",
+    "price": 0.01,
+    "description": "sfcafc",
+    "seller": "0x388C0C09a7452ab93f0A1f863116CbCc3b49a52F",
+    "username": "shreeshsingh2706@gmail.com",
+    "password": "shreeshsingh2706@gmail.com",
+    "notes": "",
+    "signature": "0x755b2bc04fa5a2b728690fd81c3f9e0b1dcf3f8bc188655a2fc3aba13bb0f737161b99c1afeaf49b1d14fcb978da97edb21088aa0decbe48ab3c093e928308581c",
+    "zkCommitment": "891c5761a3c4e6072d8ccd1f89043d01d972d672692de1fdff9acc97f87439be",
+    "timestamp": 1776541598529,
+    "id": "lst_1776541598529_xruqvn",
+    "createdAt": "2026-04-18T19:46:38.529Z"
+  },
+  {
+    "service": "netflix account",
+    "type": "other",
+    "price": 0.01,
+    "description": "netflix account valid for next 1 year.",
+    "seller": "0x388C0C09a7452ab93f0A1f863116CbCc3b49a52F",
+    "username": "vishnu.dps2011@gmail.com",
+    "password": "bishhhhh",
+    "notes": "",
+    "signature": "0x62e2dec803e0b01f7262121bb1496478837abd16e9ccbdf936f5ca8fb4bc66e965f72e550d0074b73a71f5713c1a3c29ea21e054a9e29ed75e2f24c30e9878c41b",
+    "zkCommitment": "91a5e4adb15692065e11198fd48e3e788ee413ff25462a60c46f3bf33661a5cf",
+    "timestamp": 1776542031490,
+    "id": "lst_1776542031490_8dlfhn",
+    "createdAt": "2026-04-18T19:53:51.490Z"
+  },
+  {
+    "service": "100GB Cloud Storage",
+    "type": "cloud-storage",
+    "price": 0.08,
+    "description": "Encrypted S3-compatible storage, 99.9% uptime SLA",
+    "seller": "0xSeedAgent1",
+    "zkCommitment": "341d18d9d54efe79806fe52b93c887b60ecdfd28f14c7667a8d243b06b996c0e",
+    "timestamp": 1776539607418,
+    "id": "lst_1776542264250_lw3i73",
+    "createdAt": "2026-04-18T19:57:44.250Z"
+  },
+  {
+    "service": "GPT-4 API Access",
+    "type": "api-access",
+    "price": 0.25,
+    "description": "Proxied OpenAI API key with 1M token limit",
+    "seller": "0xSeedAgent2",
+    "zkCommitment": "cb14f2071932a8e94eb7b2a9db40ca4620a2e2cedfd541346589c8885ca48189",
+    "timestamp": 1776539010826,
+    "id": "lst_1776542264251_55j5v7",
+    "createdAt": "2026-04-18T19:57:44.251Z"
+  },
+  {
+    "service": "GPU Compute 8xA100",
+    "type": "gpu-compute",
+    "price": 0.95,
+    "description": "8x A100 80GB slot, 24hr lease, PyTorch pre-installed",
+    "seller": "0xSeedAgent3",
+    "zkCommitment": "bf3404cab422b0f7c2cf094b478696a599c2864da687d9cbeb53f7ee823b7937",
+    "timestamp": 1776538736081,
+    "id": "lst_1776542264251_dcap5x",
+    "createdAt": "2026-04-18T19:57:44.251Z"
+  },
+  {
+    "service": "Managed VPS Hosting",
+    "type": "hosting",
+    "price": 0.12,
+    "description": "4vCPU / 8GB RAM / 200GB SSD, auto-backups",
+    "seller": "0xSeedAgent4",
+    "zkCommitment": "23a3fc51bef9efa2ec86719d71c4cc29be567811a9a760ed568aee2c9b46290d",
+    "timestamp": 1776538874758,
+    "id": "lst_1776542264251_v8drtw",
+    "createdAt": "2026-04-18T19:57:44.251Z"
+  },
+  {
+    "service": "Data Labelling API",
+    "type": "api-access",
+    "price": 0.18,
+    "description": "Automated image labelling with 95%+ accuracy guarantee",
+    "seller": "0xSeedAgent5",
+    "zkCommitment": "e4e0972a6362d2bebe901f9cd5218e823071456f1e7f4ee70541148feed4df56",
+    "timestamp": 1776538811105,
+    "id": "lst_1776542264252_112k80",
+    "createdAt": "2026-04-18T19:57:44.252Z"
+  }
+]

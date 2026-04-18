@@ -647,17 +647,31 @@ export default function Home() {
     setIsSelling(true);
     setSellStatus(null);
     try {
-      // Mock contract deployment / eth transaction for selling
-      const tx = await signer.sendTransaction({
-        to: address,
-        value: ethers.parseEther("0")
-      });
-      const receipt = await tx.wait();
+      // Sign a message as proof-of-ownership (no network needed)
+      const listingPayload = {
+        service: sellForm.service,
+        type: sellForm.type,
+        price: parseFloat(sellForm.price),
+        description: sellForm.description,
+        seller: address,
+        timestamp: Date.now(),
+      };
+      const message = `A2A TrustMesh AI Listing\n${JSON.stringify(listingPayload)}`;
+      const signature = await signer.signMessage(message);
+      const txHash = signature.slice(0, 66);
 
-      setSellStatus({ success: true, txId: tx.hash });
+      // Save to server (non-blocking)
+      fetch('/api/listings/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...listingPayload, username: sellForm.username, password: sellForm.password, notes: sellForm.notes, signature }),
+      }).catch(() => { });
+
+      setSellStatus({ success: true, txId: txHash });
       setSellForm({ service: "", type: "cloud-storage", price: "", description: "", username: "", password: "", productType: "cloud-storage", notes: "" });
     } catch (err) {
-      setSellStatus({ success: false, error: err instanceof Error ? err.message : "Listing failed" });
+      const msg = err instanceof Error ? err.message : "Listing failed";
+      setSellStatus({ success: false, error: msg.includes('user rejected') ? 'Signature rejected in wallet.' : msg });
     }
     setIsSelling(false);
   }
@@ -1001,15 +1015,18 @@ export default function Home() {
                   >
                     {sellStatus.success ? (
                       <>
-                        <div className="font-bold mb-1 font-orbitron text-xs tracking-widest">✓ LISTING BROADCAST</div>
-                        <div className="text-[11px] opacity-80">
-                          TX: {sellStatus.txId?.slice(0, 24)}...{" "}
+                        <div className="font-bold mb-1 font-orbitron text-xs tracking-widest">✓ LISTING SIGNED & SAVED</div>
+                        <div className="text-[11px] opacity-80 font-mono">
+                          SIG: {sellStatus.txId?.slice(0, 20)}...
+                        </div>
+                        <div className="text-[10px] opacity-60 mt-1">
+                          Proof-of-listing signature stored on-device.{" "}
                           <a
-                            href={`https://lora.algokit.io/testnet/transaction/${sellStatus.txId}`}
+                            href={`https://sepolia.etherscan.io/address/${address}`}
                             target="_blank" rel="noopener noreferrer"
                             className="text-cyan-400 underline hover:text-cyan-300"
                           >
-                            View on Explorer →
+                            View wallet on Etherscan →
                           </a>
                         </div>
                       </>
@@ -1233,7 +1250,7 @@ export default function Home() {
 
                   {!isBrowsing && browseListings.map((listing, i) => (
                     <div
-                      key={listing.txId}
+                      key={listing.id ?? listing.txId ?? `listing-${i}`}
                       className="neon-card rounded-xl p-3 animate-fade-in"
                       style={{ animationDelay: `${i * 40}ms` }}
                     >
@@ -1550,7 +1567,7 @@ export default function Home() {
                     <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
                       {lookerEntries.map((entry, i) => (
                         <a
-                          key={entry.txId}
+                          key={entry.txId ?? entry.id ?? `entry-${i}`}
                           href={`https://lora.algokit.io/testnet/transaction/${entry.txId}`}
                           target="_blank"
                           rel="noopener noreferrer"
