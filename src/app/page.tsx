@@ -16,14 +16,14 @@ import type {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SellForm {
-  service:     string;
-  type:        string;
-  price:       string;
+  service: string;
+  type: string;
+  price: string;
   description: string;
-  username:    string;
-  password:    string;
+  username: string;
+  password: string;
   productType: string;
-  notes:       string;
+  notes: string;
 }
 
 interface LookerEntry {
@@ -38,21 +38,21 @@ interface LookerEntry {
 
 const SERVICE_TYPES = [
   { value: "cloud-storage", label: "Cloud Storage" },
-  { value: "api-access",    label: "API Access" },
-  { value: "compute",       label: "GPU Compute" },
-  { value: "hosting",       label: "Hosting" },
-  { value: "other",         label: "Other" },
+  { value: "api-access", label: "API Access" },
+  { value: "compute", label: "GPU Compute" },
+  { value: "hosting", label: "Hosting" },
+  { value: "other", label: "Other" },
 ];
 
 const PHASE_MAP: Record<string, { label: string; color: string; dot: string }> = {
-  idle:         { label: "IDLE",        color: "text-zinc-500",    dot: "bg-zinc-600" },
-  initializing: { label: "INIT",        color: "text-cyan-400",    dot: "bg-cyan-500" },
-  parsing:      { label: "PARSING",     color: "text-blue-400",    dot: "bg-blue-500" },
-  discovering:  { label: "SCANNING",    color: "text-violet-400",  dot: "bg-violet-500" },
-  negotiating:  { label: "NEGOTIATING", color: "text-yellow-400",  dot: "bg-yellow-500" },
-  executing:    { label: "EXECUTING",   color: "text-orange-400",  dot: "bg-orange-500" },
-  completed:    { label: "COMPLETE",    color: "text-green-400",   dot: "bg-green-500" },
-  error:        { label: "ERROR",       color: "text-red-400",     dot: "bg-red-500" },
+  idle: { label: "IDLE", color: "text-zinc-500", dot: "bg-zinc-600" },
+  initializing: { label: "INIT", color: "text-cyan-400", dot: "bg-cyan-500" },
+  parsing: { label: "PARSING", color: "text-blue-400", dot: "bg-blue-500" },
+  discovering: { label: "SCANNING", color: "text-violet-400", dot: "bg-violet-500" },
+  negotiating: { label: "NEGOTIATING", color: "text-yellow-400", dot: "bg-yellow-500" },
+  executing: { label: "EXECUTING", color: "text-orange-400", dot: "bg-orange-500" },
+  completed: { label: "COMPLETE", color: "text-green-400", dot: "bg-green-500" },
+  error: { label: "ERROR", color: "text-red-400", dot: "bg-red-500" },
 };
 
 const INTENT_SUGGESTIONS = [
@@ -91,12 +91,12 @@ function ActionLine({ action }: { action: AgentAction }) {
   });
 
   const colorClass =
-    action.agent === "buyer"      ? "text-cyan-400" :
-    action.agent === "seller"     ? "text-pink-400" :
-    action.agent === "user"       ? "text-green-400" :
-    action.type === "transaction" ? "text-yellow-400" :
-    action.type === "result"      ? "text-zinc-200" :
-    "text-zinc-600";
+    action.agent === "buyer" ? "text-cyan-400" :
+      action.agent === "seller" ? "text-pink-400" :
+        action.agent === "user" ? "text-green-400" :
+          action.type === "transaction" ? "text-yellow-400" :
+            action.type === "result" ? "text-zinc-200" :
+              "text-zinc-600";
 
   // Render URLs inside content as clickable links
   function renderContent(text: string) {
@@ -360,7 +360,7 @@ export default function Home() {
   useEffect(() => { fetchBrowseListings(); }, []);
   useEffect(() => {
     if (address) fetchBrowseListings();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
   // ── Commerce pipeline ────────────────────────────────────────────────────────
@@ -497,11 +497,11 @@ export default function Home() {
           const credData = await credRes.json();
           if (credRes.ok && credData.credentials) {
             setPurchasedCreds({
-              username:    credData.credentials.username,
-              password:    credData.credentials.password,
+              username: credData.credentials.username,
+              password: credData.credentials.password,
               productType: credData.credentials.productType,
-              notes:       credData.credentials.notes,
-              service:     credData.service ?? deal.service,
+              notes: credData.credentials.notes,
+              service: credData.service ?? deal.service,
             });
             addActions([mkAction(
               `🔐 CREDENTIALS DELIVERED via x402 protocol\nService: ${credData.service ?? deal.service}`,
@@ -568,14 +568,14 @@ export default function Home() {
       if (!signer || !address) throw new Error("Wallet not connected");
 
       addActions([mkAction(`Preparing ${deal.finalPrice} ETH payment — awaiting wallet signature...`, "transaction")]);
-      
+
       const tx = await signer.sendTransaction({
         to: deal.sellerAddress,
         value: ethers.parseEther(deal.finalPrice.toString())
       });
 
       addActions([mkAction("Transaction signed. Broadcasting to Ethereum network...", "transaction")]);
-      
+
       const receipt = await tx.wait();
       if (!receipt) throw new Error("Transaction verification failed");
 
@@ -629,11 +629,11 @@ export default function Home() {
     if (result?.credentials) {
       const creds = result.credentials;
       setPurchasedCreds({
-        username:    creds.username,
-        password:    creds.password,
+        username: creds.username,
+        password: creds.password,
         productType: creds.productType,
-        notes:       creds.notes,
-        service:     deal.service,
+        notes: creds.notes,
+        service: deal.service,
       });
     }
   }
@@ -701,11 +701,10 @@ export default function Home() {
                 <a
                   key={sec}
                   href={`#${sec.toLowerCase()}`}
-                  className={`px-3 py-5 text-[10px] font-orbitron tracking-[0.15em] border-b-2 transition-all ${
-                    isActive
+                  className={`px-3 py-5 text-[10px] font-orbitron tracking-[0.15em] border-b-2 transition-all ${isActive
                       ? "text-cyan-400 border-cyan-400"
                       : "text-zinc-600 border-transparent hover:text-zinc-300 hover:border-zinc-700"
-                  }`}
+                    }`}
                 >
                   {sec}
                 </a>
@@ -721,11 +720,10 @@ export default function Home() {
             </div>
             <button
               onClick={() => setAutoBuy(p => !p)}
-              className={`hidden md:block px-2.5 py-1 text-[10px] font-mono border rounded transition-all ${
-                autoBuy
+              className={`hidden md:block px-2.5 py-1 text-[10px] font-mono border rounded transition-all ${autoBuy
                   ? "text-green-400 border-green-500/30 bg-green-500/5"
                   : "text-zinc-700 border-zinc-800 hover:text-zinc-400"
-              }`}
+                }`}
             >
               AUTO {autoBuy ? "ON" : "OFF"}
             </button>
@@ -793,10 +791,10 @@ export default function Home() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
             {[
-              { label: "REPUTATION APP",  value: "757478982",  sub: "On-chain Contract",  color: "text-cyan-400" },
-              { label: "NETWORK",         value: "TESTNET",     sub: "Ethereum",           color: "text-green-400" },
-              { label: "PAYMENT LAYER",   value: "x402",        sub: "HTTP Protocol",      color: "text-pink-400" },
-              { label: "FINALITY",        value: "~3.9s",       sub: "Pure PoS",           color: "text-yellow-400" },
+              { label: "REPUTATION APP", value: "757478982", sub: "On-chain Contract", color: "text-cyan-400" },
+              { label: "NETWORK", value: "TESTNET", sub: "Ethereum", color: "text-green-400" },
+              { label: "PAYMENT LAYER", value: "x402", sub: "HTTP Protocol", color: "text-pink-400" },
+              { label: "FINALITY", value: "~3.9s", sub: "Pure PoS", color: "text-yellow-400" },
             ].map(stat => (
               <div key={stat.label} className="neon-card rounded-xl p-4 text-left">
                 <div className="section-label mb-2">{stat.label}</div>
@@ -809,10 +807,10 @@ export default function Home() {
           {/* Features */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: "⬡", title: "ON-CHAIN ZK",    desc: "Zero-knowledge commitments stored on Ethereum" },
+              { icon: "⬡", title: "ON-CHAIN ZK", desc: "Zero-knowledge commitments stored on Ethereum" },
               { icon: "◈", title: "AI NEGOTIATION", desc: "Multi-round agent bargaining powered by Groq" },
-              { icon: "▣", title: "REPUTATION",     desc: "BoxMap-based on-chain seller scoring system" },
-              { icon: "◆", title: "x402 PROTOCOL",  desc: "HTTP 402 automated ETH payment settlements" },
+              { icon: "▣", title: "REPUTATION", desc: "BoxMap-based on-chain seller scoring system" },
+              { icon: "◆", title: "x402 PROTOCOL", desc: "HTTP 402 automated ETH payment settlements" },
             ].map(feat => (
               <div key={feat.title} className="neon-card rounded-xl p-4 text-left group">
                 <div className="text-xl mb-3 text-cyan-500/40 group-hover:text-cyan-400 transition-colors duration-300">
@@ -989,11 +987,10 @@ export default function Home() {
 
               {sellStatus && (
                 <div
-                  className={`rounded-xl p-4 border font-mono text-sm animate-fade-in ${
-                    sellStatus.success
+                  className={`rounded-xl p-4 border font-mono text-sm animate-fade-in ${sellStatus.success
                       ? "bg-green-500/5 border-green-500/20 text-green-400"
                       : "bg-red-500/5 border-red-500/20 text-red-400"
-                  }`}
+                    }`}
                 >
                   {sellStatus.success ? (
                     <>
@@ -1023,9 +1020,9 @@ export default function Home() {
           <div className="neon-divider my-10" />
           <div className="grid grid-cols-3 gap-4 text-center">
             {[
-              { label: "FORMAT",     value: "JSON/ARC" },
-              { label: "INDEXER",   value: "TESTNET" },
-              { label: "BASE FEE",  value: "~0.001 ETH" },
+              { label: "FORMAT", value: "JSON/ARC" },
+              { label: "INDEXER", value: "TESTNET" },
+              { label: "BASE FEE", value: "~0.001 ETH" },
             ].map(item => (
               <div key={item.label}>
                 <div className="section-label mb-1">{item.label}</div>
@@ -1151,9 +1148,8 @@ export default function Home() {
                   </button>
                 </div>
                 {vaultStatus && (
-                  <div className={`text-[10px] font-mono ${
-                    vaultStatus.startsWith("✓") ? "text-green-400" : "text-red-400"
-                  }`}>
+                  <div className={`text-[10px] font-mono ${vaultStatus.startsWith("✓") ? "text-green-400" : "text-red-400"
+                    }`}>
                     {vaultStatus}
                   </div>
                 )}
@@ -1481,11 +1477,10 @@ export default function Home() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setAutoBuy(p => !p)}
-                    className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-mono border rounded transition-all ${
-                      autoBuy
+                    className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-mono border rounded transition-all ${autoBuy
                         ? "text-green-400 border-green-500/30 bg-green-500/5"
                         : "text-zinc-600 border-zinc-800 hover:text-zinc-400"
-                    }`}
+                      }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${autoBuy ? "bg-green-400 animate-pulse" : "bg-zinc-700"}`} />
                     AUTO-BUY {autoBuy ? "ON — agent pays automatically" : "OFF — confirm before paying"}
@@ -1602,10 +1597,9 @@ export default function Home() {
                               </span>
                             </div>
                           </div>
-                          <span className={`font-orbitron font-bold text-sm shrink-0 ${
-                            agent.score >= 80 ? "text-green-400" :
-                            agent.score >= 50 ? "text-yellow-400" : "text-red-400"
-                          }`}>
+                          <span className={`font-orbitron font-bold text-sm shrink-0 ${agent.score >= 80 ? "text-green-400" :
+                              agent.score >= 50 ? "text-yellow-400" : "text-red-400"
+                            }`}>
                             {agent.score}
                           </span>
                         </div>
@@ -1625,8 +1619,8 @@ export default function Home() {
                 <div className="section-label mb-3">SESSION STATUS</div>
                 <div className="space-y-2.5 text-xs font-mono">
                   {[
-                    { k: "PHASE",        v: phaseConfig.label, cls: phaseConfig.color },
-                    { k: "LISTINGS",     v: String(session.listings.length), cls: "text-zinc-300" },
+                    { k: "PHASE", v: phaseConfig.label, cls: phaseConfig.color },
+                    { k: "LISTINGS", v: String(session.listings.length), cls: "text-zinc-300" },
                     { k: "NEGOTIATIONS", v: String(session.negotiations.length), cls: "text-zinc-300" },
                     {
                       k: "BEST DEAL",
@@ -1664,10 +1658,10 @@ export default function Home() {
                 <div className="section-label mb-3">NETWORK</div>
                 <div className="space-y-2 text-xs font-mono">
                   {[
-                    { k: "CHAIN",    v: "ETHRAND" },
-                    { k: "NETWORK",  v: "TESTNET" },
+                    { k: "CHAIN", v: "ETHRAND" },
+                    { k: "NETWORK", v: "TESTNET" },
                     { k: "FINALITY", v: "~3.9s" },
-                    { k: "INDEXER",  v: lookerTs ? "ACTIVE" : "CONNECTING..." },
+                    { k: "INDEXER", v: lookerTs ? "ACTIVE" : "CONNECTING..." },
                   ].map(row => (
                     <div key={row.k} className="flex justify-between">
                       <span className="text-zinc-600">{row.k}</span>
