@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useWallet } from "@/hooks/use-wallet";
 import { ethers } from "ethers";
 import { WalletConnect } from "@/components/wallet-connect";
+import { ScrollAnimation } from "@/components/scroll-animation";
 import type {
   SessionState,
   AgentAction,
@@ -672,6 +673,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[var(--bg)] relative">
       {/* ─── SCANLINE is on body via className="scanlines" ─── */}
+
+      {/* ═══════════════════════════════════════════════════ SCROLL ANIMATION ══ */}
+      <ScrollAnimation />
 
       {/* ═══════════════════════════════════════════════════════ NAV ══════════ */}
       <nav className="fixed top-0 inset-x-0 z-50 glass border-b border-[var(--border)]">
