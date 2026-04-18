@@ -1,4 +1,4 @@
-import Groq from "groq-sdk";
+import Groq from "groq-sdk/index.mjs";
 import { ParsedIntent } from "@/lib/agents/types";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
