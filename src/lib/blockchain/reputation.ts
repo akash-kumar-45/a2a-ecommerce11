@@ -7,7 +7,7 @@
  * wallet-signing flow (unsigned txn → frontend → signed txn → /api/wallet/submit).
  */
 
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import { getClient, getSellerKeys, SELLER_INITIAL_REPUTATIONS } from "./algorand";
 
 const APP_ID_ENV = () => {

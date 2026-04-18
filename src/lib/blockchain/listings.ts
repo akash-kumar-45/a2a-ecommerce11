@@ -1,4 +1,4 @@
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import {
   getClient,
   getStoredAccounts,

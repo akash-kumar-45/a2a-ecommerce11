@@ -2,7 +2,7 @@ import { x402Client } from "@x402-avm/core/client";
 import { registerExactAvmScheme } from "@x402-avm/avm/exact/client";
 import { wrapFetchWithPayment } from "@x402-avm/fetch";
 import type { ClientAvmSigner } from "@x402-avm/avm";
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 
 export function createAvmSigner(base64PrivateKey: string): ClientAvmSigner {
   const secretKey = Buffer.from(base64PrivateKey, "base64");

@@ -22,7 +22,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import { getClient, queryAgentReputation } from "@/lib/blockchain/algorand";
 
 type Action    = "increment" | "decrement";

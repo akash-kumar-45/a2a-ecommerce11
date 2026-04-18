@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import { executePayment, getBalance, getStoredAccounts } from "@/lib/blockchain/algorand";
 import { autoUpdateReputation } from "@/lib/blockchain/reputation";
 import { createAction } from "@/lib/a2a/messaging";

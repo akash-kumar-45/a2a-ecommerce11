@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import { getClient } from "@/lib/blockchain/algorand";
 
 export async function GET(req: NextRequest) {

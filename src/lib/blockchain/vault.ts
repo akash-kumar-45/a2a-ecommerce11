@@ -11,7 +11,7 @@
  *   3. Auto-generate a new keypair, save to .vault-key
  */
 
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import { getClient, getBalance } from "./algorand";
 import fs from "fs";
 import path from "path";

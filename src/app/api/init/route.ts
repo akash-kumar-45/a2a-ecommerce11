@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import {
   initAccounts,
   getNetworkMode,

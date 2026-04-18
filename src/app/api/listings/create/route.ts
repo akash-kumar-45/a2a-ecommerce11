@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import { createHash, randomBytes } from "crypto";
 import { getClient } from "@/lib/blockchain/algorand";
 import { storeCredentials } from "@/lib/credentials";

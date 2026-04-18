@@ -10,7 +10,7 @@
  *  GET /api/products/{txId}?proof={txId} → verify on-chain → return credentials
  */
 
-import algosdk from "algosdk";
+import algosdk from "@/lib/blockchain/algosdk-mock";
 import { getClient } from "@/lib/blockchain/algorand";
 
 export const NETWORK = process.env.ALGORAND_NETWORK?.toLowerCase() === "mainnet"
