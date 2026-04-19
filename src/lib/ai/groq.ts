@@ -1,12 +1,11 @@
-/**
- * AI helpers — fully offline, template-based (no API key required).
- * Replaces the Groq/LLM integration with deterministic logic.
- */
-
+import { Groq } from "groq-sdk";
 import type { ParsedIntent } from "@/lib/agents/types";
 
-// ─── Intent parsing ────────────────────────────────────────────────────────────
+// Fallback logic if API key is missing
+const isEnabled = !!process.env.GROQ_API_KEY;
+const groq = isEnabled ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
+// Extracted from original mocked groq
 const TYPE_MAP: Record<string, string> = {
   cloud: "cloud-storage", storage: "cloud-storage", backup: "cloud-storage", s3: "cloud-storage",
   api: "api-access", gateway: "api-access", endpoint: "api-access", key: "api-access",
@@ -14,73 +13,84 @@ const TYPE_MAP: Record<string, string> = {
   host: "hosting", hosting: "hosting", vps: "hosting", deploy: "hosting", website: "hosting",
 };
 
-const STOP = new Set(["buy", "get", "me", "a", "the", "under", "for", "i", "need", "want", "eth", "algo", "some", "please", "find", "cheapest", "best"]);
-
 export async function parseUserIntent(message: string): Promise<ParsedIntent> {
-  const lower = message.toLowerCase();
+  if (groq) {
+    try {
+      const response = await groq.chat.completions.create({
+        model: "llama3-8b-8192",
+        messages: [
+          {
+            role: "system",
+            content: `You are an intent parser for an automated Web3 marketplace. 
+                      Extract the underlying shopping objective from the user's message.
+                      Respond ONLY with a JSON object. No extra text.
+                      Format: {"serviceType": "cloud-storage", "maxBudget": 5.5, "searchTerms": ["aws", "fast"]}`
+          },
+          { role: "user", content: message }
+        ],
+        temperature: 0.1,
+      });
 
-  // Extract budget
+      const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+      return {
+        serviceType: parsed.serviceType || "cloud-storage",
+        maxBudget: parsed.maxBudget || 10,
+        preferences: [],
+        searchTerms: parsed.searchTerms || [],
+        rawMessage: message
+      };
+    } catch (e) {
+      console.error("Groq parse failed, falling back to regex", e);
+    }
+  }
+
+  // Regex Fallback
+  const lower = message.toLowerCase();
   const budgetMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:eth|algo)/i);
   const maxBudget = budgetMatch ? parseFloat(budgetMatch[1]) : 10;
-
-  // Extract service type
   const words = lower.split(/\s+/);
   let serviceType = "cloud-storage";
   for (const w of words) {
     const clean = w.replace(/[^a-z]/g, "");
     if (TYPE_MAP[clean]) { serviceType = TYPE_MAP[clean]; break; }
   }
-
-  // If no standard type matched, use the meaningful nouns as the type
-  if (serviceType === "cloud-storage" && !lower.match(/cloud|storage|backup/)) {
-    const terms = words.filter(w => w.length > 3 && !STOP.has(w)).slice(0, 2);
-    if (terms.length) serviceType = terms.join("-").replace(/[^a-z-]/g, "");
-  }
-
-  // Preferences
-  const preferences: string[] = [];
-  if (lower.includes("cheap") || lower.includes("cheap") || lower.includes("low")) preferences.push("cheap");
-  if (lower.includes("fast") || lower.includes("quick")) preferences.push("fast");
-  if (lower.includes("secure") || lower.includes("encrypt")) preferences.push("encrypted");
-  if (lower.includes("reliable") || lower.includes("uptime")) preferences.push("reliable");
-
-  const searchTerms = words.filter(w => w.length > 2 && !STOP.has(w)).map(w => w.replace(/[^a-z]/g, "")).filter(Boolean);
-
-  return { serviceType, maxBudget, preferences, searchTerms, rawMessage: message };
+  const searchTerms = words.filter(w => w.length > 2).map(w => w.replace(/[^a-z]/g, "")).filter(Boolean);
+  
+  return { serviceType, maxBudget, preferences: [], searchTerms, rawMessage: message };
 }
 
-// ─── Negotiation response ──────────────────────────────────────────────────────
-
-const ACCEPT_LINES = [
-  (price: number) => `Deal! I'll accept ${price} ETH — you drive a hard bargain. Credentials will be delivered instantly.`,
-  (price: number) => `Agreed at ${price} ETH. You've got yourself a deal — processing now.`,
-  (price: number) => `${price} ETH works for me. Let's close this!`,
-];
-
-const COUNTER_LINES = [
-  (counter: number, base: number) => `My service is valued at ${base} ETH — I can come down to ${counter} ETH, but that's my best offer.`,
-  (counter: number) => `I appreciate the interest. How about ${counter} ETH? The uptime guarantee alone is worth it.`,
-  (counter: number) => `${counter} ETH is a fair price for enterprise-grade service. What do you say?`,
-];
-
 export async function generateNegotiationResponse(
-  _sellerName: string,
-  _strategy: string,
-  _buyerOffer: number,
-  _sellerMin: number,
+  sellerName: string,
+  strategy: string,
+  buyerOffer: number,
+  sellerMin: number,
   sellerBase: number,
   counterPrice: number,
   round: number,
   isAccepting: boolean
 ): Promise<string> {
-  const idx = round % 3;
-  if (isAccepting) {
-    return ACCEPT_LINES[idx](counterPrice);
+  if (groq) {
+    try {
+      const prompt = isAccepting 
+        ? `Accept the buyer's offer of ${counterPrice} ETH warmly.`
+        : `Haggle! The buyer offered ${buyerOffer} ETH. Counter-offer exactly ${counterPrice} ETH. Defend your price based on high quality ${strategy} standards. Keep it under 2 sentences. Act like an AI seller.`;
+        
+      const response = await groq.chat.completions.create({
+        model: "llama3-8b-8192",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+      });
+      return response.choices[0]?.message?.content || `${counterPrice} ETH works!`;
+    } catch (e) {
+      console.error("Groq haggle failed", e);
+    }
   }
-  return COUNTER_LINES[idx](counterPrice, sellerBase);
-}
 
-// ─── Deal summary ──────────────────────────────────────────────────────────────
+  // Fallback
+  return isAccepting 
+    ? `Deal! I'll accept ${counterPrice} ETH. Credentials will be delivered instantly.`
+    : `I can come down to ${counterPrice} ETH, but that's my best offer for enterprise-grade service.`;
+}
 
 export async function generateDealSummary(
   sellerName: string,
@@ -89,13 +99,18 @@ export async function generateDealSummary(
   originalPrice: number,
   rounds: number
 ): Promise<string> {
-  const savings = originalPrice > 0
-    ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100)
-    : 0;
-  const roundWord = rounds === 1 ? "round" : "rounds";
-  return (
-    `Agent secured **${serviceType}** from ${sellerName || "the seller"} at **${finalPrice} ETH** ` +
-    `(${savings > 0 ? `saving ${savings}%` : "at listed price"}) after ${rounds} negotiation ${roundWord}. ` +
-    `ZK commitment verified. Credentials ready for delivery.`
-  );
+  const savings = originalPrice > 0 ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0;
+  
+  if (groq) {
+    try {
+      const response = await groq.chat.completions.create({
+        model: "llama3-8b-8192",
+        messages: [{ role: "user", content: `Summarize this deal in one short punchy sentence like a hacker: Secured ${serviceType} from ${sellerName} for ${finalPrice} ETH (Saved ${savings}%). Took ${rounds} rounds.` }],
+        temperature: 0.5,
+      });
+      return response.choices[0]?.message?.content || "";
+    } catch {}
+  }
+
+  return `Agent secured **${serviceType}** from ${sellerName || "the seller"} at **${finalPrice} ETH** (${savings > 0 ? `saving ${savings}%` : "at listed price"}) after ${rounds} rounds.`;
 }

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     ];
 
     // Fetch all listings from local DB
-    const allListings = getAllListings();
+    const allListings = await getAllListings();
 
     actions.push(
       createAction(

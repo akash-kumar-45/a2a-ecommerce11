@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getListingById } from "@/lib/db/listings-store";
+import { decryptString } from "@/lib/encryption";
 import { createAction } from "@/lib/a2a/messaging";
 import type { NegotiationSession } from "@/lib/agents/types";
 import { createHash, randomBytes } from "crypto";
@@ -64,11 +65,11 @@ export async function POST(req: NextRequest) {
     const listingId = deal.listingTxId;
     if (listingId) {
       try {
-        const listing = getListingById(listingId);
+        const listing = await getListingById(listingId);
         if (listing?.username && listing?.password) {
           credentials = {
             username: listing.username,
-            password: listing.password,
+            password: decryptString(listing.password),
             notes: listing.notes ?? "",
             service: listing.service,
           };

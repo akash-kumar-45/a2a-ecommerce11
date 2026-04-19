@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
       : undefined;
     const seller = req.nextUrl.searchParams.get("seller") ?? undefined;
 
-    const listings = getAllListings({ type, maxPrice, seller });
+    const listings = await getAllListings({ type, maxPrice, seller });
 
     return NextResponse.json({
       listings,

@@ -61,8 +61,8 @@ export function ReputationPanel() {
     log(`Transaction sent. Waiting for confirmation...`);
     const receipt = await tx.wait();
     if (receipt) {
-       log(`${label} confirmed — Block ${receipt.blockNumber}`);
-       return receipt;
+      log(`${label} confirmed — Block ${receipt.blockNumber}`);
+      return receipt;
     }
     throw new Error("Transaction failed");
   }
@@ -87,13 +87,13 @@ export function ReputationPanel() {
     try {
       log(`Building feedback transaction (score: ${feedback.score})...`);
       const tx = await signer.sendTransaction({
-          to: feedback.agentAddr,
-          value: ethers.parseEther("0"),
+        to: feedback.agentAddr,
+        value: ethers.parseEther("0"),
       });
       log(`Transaction sent. Waiting for confirmation...`);
       const receipt = await tx.wait();
       if (receipt) {
-         log(`Feedback confirmed — Block ${receipt.blockNumber}`);
+        log(`Feedback confirmed — Block ${receipt.blockNumber}`);
       }
     } catch (e) {
       log(`Feedback failed: ${e instanceof Error ? e.message : "unknown"}`);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createListing } from "@/lib/db/listings-store";
+import { encryptString } from "@/lib/encryption";
 import { createHash, randomBytes } from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -14,20 +15,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate a ZK-style commitment hash as proof
-    const secret = randomBytes(16).toString("hex");
-    const zkCommitment = createHash("sha256")
-      .update(`${secret}|${seller}|${price}|${service}`)
-      .digest("hex");
+    // Generate a proper ZK-style Fair Exchange commitment hash
+    // The commitment is exactly SHA256(password). 
+    // The buyer will compute this locally after Escrow deposit to verify delivery before Releasing funds.
+    let zkCommitment = "";
+    if (password) {
+      zkCommitment = createHash("sha256").update(password).digest("hex");
+    } else {
+      const secret = randomBytes(16).toString("hex");
+      zkCommitment = createHash("sha256").update(`${secret}|${seller}|${price}|${service}`).digest("hex");
+    }
 
-    const listing = createListing({
+    const listing = await createListing({
       service,
       type: type ?? "cloud-storage",
       price: parseFloat(price),
       description: description ?? "",
       seller,
       username,
-      password,
+      password: password ? encryptString(password) : undefined,
       notes: notes ?? "",
       signature,
       zkCommitment,

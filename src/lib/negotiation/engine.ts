@@ -184,6 +184,7 @@ async function negotiateWithListing(
     zkVerified,
     rounds:         messages.length,
     reputationScore,
+    zkCommitment: listing.zkCommitment,
   };
 
   return {

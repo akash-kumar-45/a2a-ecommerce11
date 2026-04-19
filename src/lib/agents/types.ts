@@ -52,6 +52,8 @@ export interface NegotiationSession {
   reputationScore: number;
   /** Composite score used for deal ranking: blend of discount % and reputation */
   dealScore: number;
+  /** Optional cryptographic hash representing a commitment to the seller's password */
+  zkCommitment?: string;
 }
 
 export interface EscrowState {
