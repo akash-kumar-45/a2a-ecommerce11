@@ -185,7 +185,7 @@ export default function Home() {
   const [purchasedCreds, setPurchasedCreds] = useState<{
     username: string; password: string; productType?: string; notes?: string; service?: string;
   } | null>(null);
-  const [sellStatus, setSellStatus] = useState<{ success: boolean; txId?: string; error?: string } | null>(null);
+  const [sellStatus, setSellStatus] = useState<{ success: boolean; txId?: string; ipfsHash?: string; error?: string } | null>(null);
   const [isSelling, setIsSelling] = useState(false);
 
   // Marketplace browse
@@ -592,25 +592,49 @@ export default function Home() {
       if (!signer || !address) throw new Error("Wallet not connected");
 
       addActions([mkAction(`Preparing ${deal.finalPrice} ETH payment — awaiting wallet signature...`, "transaction")]);
+      const escrowAddr = process.env.NEXT_PUBLIC_ESCROW_ADDRESS;
+      const HARDHAT_DEFAULT = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+      const ZERO_ADDR       = "0x0000000000000000000000000000000000000000";
+      const useEscrow = escrowAddr &&
+        escrowAddr !== HARDHAT_DEFAULT &&
+        escrowAddr !== ZERO_ADDR &&
+        ethers.isAddress(escrowAddr);
 
-      const contract = new ethers.Contract(
-        process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-        A2AEscrowArtifact.abi,
-        signer
-      );
+      let txHash: string;
+      let blockNumber: number;
 
-      const tx = await contract.createEscrow(
-        deal.listingTxId,
-        deal.sellerAddress,
-        { value: ethers.parseEther(deal.finalPrice.toString()) }
-      );
+      if (useEscrow) {
+        const contract = new ethers.Contract(escrowAddr!, A2AEscrowArtifact.abi, signer);
+        const tx = await contract.createEscrow(
+          deal.listingTxId,
+          deal.ipfsHash || "",
+          deal.sellerAddress,
+          { value: ethers.parseEther(deal.finalPrice.toString()) }
+        );
+        addActions([mkAction("Transaction signed. Broadcasting to Ethereum network...", "transaction")]);
+        const receipt = await tx.wait();
+        if (!receipt) throw new Error("Transaction verification failed");
+        txHash = tx.hash;
+        blockNumber = receipt.blockNumber;
+      } else {
+        // ── Direct P2P transfer path (no contract deployed yet) ─────────────
+        // Seller address comes from the listing's stored wallet — not from any input
+        if (!deal.sellerAddress || !ethers.isAddress(deal.sellerAddress)) {
+          throw new Error("Invalid seller address in listing — cannot send payment");
+        }
+        addActions([mkAction("Sending ETH directly to seller wallet (no escrow contract deployed)...", "transaction")]);
+        const tx = await signer.sendTransaction({
+          to:    deal.sellerAddress,
+          value: ethers.parseEther(deal.finalPrice.toString()),
+        });
+        addActions([mkAction("Transaction signed. Broadcasting to Ethereum network...", "transaction")]);
+        const receipt = await tx.wait();
+        if (!receipt) throw new Error("Transaction verification failed");
+        txHash = tx.hash;
+        blockNumber = receipt.blockNumber;
+      }
 
-      addActions([mkAction("Transaction signed. Broadcasting to Ethereum network...", "transaction")]);
-
-      const receipt = await tx.wait();
-      if (!receipt) throw new Error("Transaction verification failed");
-
-      // 2. Fetch Credentials (X402 Delivery)
+      // 2. Fetch Credentials
       addActions([mkAction(`Escrow Deposit Verified. Prompting Delivery Agent for Credentials...`, "verification", "system")]);
       const result = await fetch("/api/execute", {
         method: "POST",
@@ -633,29 +657,31 @@ export default function Home() {
 
       addActions([mkAction(`✅ FAIR EXCHANGE VERIFIED: Delivery Agent hash matches initial ZK commitment!\n\nCredentials unlocked:\nUser: ${data.credentials.username}\nPass: ${deliveredPass}`, "result")]);
 
-      // 3. Final Escrow Release
-      addActions([mkAction(`Prompting wallet to authorize mathematical Release of Escrow Funds to seller...`, "transaction")]);
-
-      const releaseTx = await contract.releaseFunds(deal.listingTxId);
-      addActions([mkAction(`Release signed. Broadcasting...`, "transaction")]);
-
-      const releaseReceipt = await releaseTx.wait();
+      // 3. Release escrow if contract was used
+      if (useEscrow) {
+        addActions([mkAction(`Prompting wallet to authorize mathematical Release of Escrow Funds to seller...`, "transaction")]);
+        const contract = new ethers.Contract(escrowAddr!, A2AEscrowArtifact.abi, signer);
+        const releaseTx = await contract.releaseFunds(deal.listingTxId);
+        addActions([mkAction(`Release signed. Broadcasting...`, "transaction")]);
+        const releaseReceipt = await releaseTx.wait();
+        blockNumber = releaseReceipt.blockNumber;
+      }
 
       setSession(prev => ({
         ...prev,
         escrow: {
-          status: "released",
-          buyerAddress: address,
-          sellerAddress: deal.sellerAddress,
-          amount: deal.finalPrice,
-          txId: tx.hash,
-          confirmedRound: receipt.blockNumber,
+          status:          "released",
+          buyerAddress:    address,
+          sellerAddress:   deal.sellerAddress,
+          amount:          deal.finalPrice,
+          txId:            txHash,
+          confirmedRound:  blockNumber,
         },
         credentials: data.credentials,
       }));
 
       addActions([mkAction(
-        `ESCROW CONTRACT RESOLVED\nFunds Transferred to Seller: ${deal.finalPrice} ETH\nBlock: ${releaseReceipt.blockNumber}\n\n✅ Transaction confirmed! View transaction history on Etherscan:\nhttps://sepolia.etherscan.io/tx/${releaseTx.hash}`,
+        `TRANSACTION RESOLVED\nFunds Transferred to Seller: ${deal.finalPrice} ETH\nBlock: ${blockNumber}\n\n✅ Transaction confirmed! View on Etherscan:\nhttps://sepolia.etherscan.io/tx/${txHash}`,
         "transaction",
       )]);
 
@@ -720,14 +746,30 @@ export default function Home() {
       const signature = await signer.signMessage(message);
       const txHash = signature.slice(0, 66);
 
-      // Save to server (non-blocking)
+      // Pin to IPFS first
+      let ipfsHash = "";
+      try {
+        const pinRes = await fetch('/api/ipfs/pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(listingPayload)
+        });
+        if (pinRes.ok) {
+          const pinData = await pinRes.json();
+          ipfsHash = pinData.IpfsHash || "";
+        }
+      } catch (err) {
+        console.error("IPFS Pinning failed:", err);
+      }
+
+      // Save to server (non-blocking) with the IPFS CID
       fetch('/api/listings/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...listingPayload, username: sellForm.username, password: sellForm.password, notes: sellForm.notes, signature }),
+        body: JSON.stringify({ ...listingPayload, username: sellForm.username, password: sellForm.password, notes: sellForm.notes, signature, ipfsHash }),
       }).catch(() => { });
 
-      setSellStatus({ success: true, txId: txHash });
+      setSellStatus({ success: true, txId: txHash, ipfsHash });
       setSellForm({ service: "", type: "cloud-storage", price: "", description: "", username: "", password: "", productType: "cloud-storage", notes: "" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Listing failed";
@@ -1087,8 +1129,13 @@ export default function Home() {
                       {sellStatus.success ? (
                         <>
                           <div className="font-bold mb-1 font-orbitron text-xs tracking-widest">✓ LISTING SIGNED & SAVED</div>
-                          <div className="text-[11px] opacity-80 font-mono">
-                            SIG: {sellStatus.txId?.slice(0, 20)}...
+                          <div className="text-[11px] opacity-80 break-all space-y-1">
+                            <div>SIG: {sellStatus.txId?.slice(0, 20)}...</div>
+                            {sellStatus.ipfsHash && (
+                              <div className="text-[11px] text-[var(--cyan)]">
+                                IPFS: ipfs://{sellStatus.ipfsHash}
+                              </div>
+                            )}
                           </div>
                           <div className="text-[10px] opacity-60 mt-1">
                             Proof-of-listing signature stored on-device.{" "}
