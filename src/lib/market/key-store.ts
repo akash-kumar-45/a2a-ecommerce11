@@ -12,21 +12,37 @@
  *     database column. The key store must be persistent across server restarts.
  */
 
-// { cid → { secretKey, sellerAddress } }
-const keyStore = new Map<string, { secretKey: string; sellerAddress: string }>();
+import prisma from "@/lib/prisma";
+import { encryptForDatabase, decryptFromDatabase } from "./server-crypto";
 
-export function storeKey(cid: string, secretKey: string, sellerAddress: string): void {
-  if (keyStore.has(cid)) {
-    // Silent no-op — key already registered; seller cannot overwrite
-    return;
+export async function storeKey(cid: string, secretKey: string, sellerWallet: string) {
+  const encryptedKey = encryptForDatabase(secretKey);
+  
+  await prisma.decentralizedKey.upsert({
+    where: { cid },
+    update: { encryptedKey, sellerWallet },
+    create: { cid, encryptedKey, sellerWallet },
+  });
+}
+
+export async function getKey(cid: string): Promise<string | undefined> {
+  const record = await prisma.decentralizedKey.findUnique({
+    where: { cid },
+  });
+  
+  if (!record) return undefined;
+  
+  try {
+    return decryptFromDatabase(record.encryptedKey);
+  } catch (err) {
+    console.error(`Failed to decrypt key for CID ${cid}`, err);
+    return undefined;
   }
-  keyStore.set(cid, { secretKey, sellerAddress });
 }
 
-export function getKey(cid: string): { secretKey: string; sellerAddress: string } | null {
-  return keyStore.get(cid) ?? null;
-}
-
-export function hasKey(cid: string): boolean {
-  return keyStore.has(cid);
+export async function hasKey(cid: string): Promise<boolean> {
+  const count = await prisma.decentralizedKey.count({
+    where: { cid },
+  });
+  return count > 0;
 }

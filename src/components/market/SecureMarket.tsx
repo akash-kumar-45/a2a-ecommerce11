@@ -77,7 +77,14 @@ export function SecureSellerPanel() {
       await fetch("/api/market/register-key", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ cid, secretKey, sellerAddress: address }),
+        body:    JSON.stringify({ 
+          cid, 
+          secretKey, 
+          sellerAddress: address,
+          service: form.service,
+          price: parseFloat(form.price || "0"),
+          description: form.notes || form.service 
+        }),
       });
 
       setStatus("⛓ Key stored. Calling A2AMarket.addProduct() via MetaMask...");

@@ -16,9 +16,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ethers }                     from "ethers";
 import { storeKey, hasKey }           from "@/lib/market/key-store";
+import prisma                         from "@/lib/prisma";
 
 const MARKET_ABI = [
-  "function getProduct(string memory _cid) external view returns (tuple(address seller, string cid, uint256 price, bool exists))",
+  "function getProduct(string memory _cid) external view returns (tuple(address seller, string cid, uint256 price, bool exists))"
 ];
 
 function getProvider() {
@@ -28,7 +29,7 @@ function getProvider() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { cid, secretKey, sellerAddress } = await req.json();
+    const { cid, secretKey, sellerAddress, service, price, description } = await req.json();
 
     if (!cid || !secretKey || !sellerAddress) {
       return NextResponse.json({ error: "cid, secretKey, sellerAddress are required" }, { status: 400 });
@@ -38,13 +39,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "secretKey too short — must be a 256-bit hex string" }, { status: 400 });
     }
 
-    if (hasKey(cid)) {
+    const keyExists = await hasKey(cid);
+    if (keyExists) {
       // Already registered — seller cannot overwrite to prevent key-swap attack
       return NextResponse.json({ success: true, message: "Key already registered for this CID" });
     }
 
     // ── On-chain verification ────────────────────────────────────────────────
-    // Only allow key registration if the contract confirms msg.sender === product.seller
     const marketAddr = process.env.NEXT_PUBLIC_MARKET_ADDRESS;
     if (marketAddr && marketAddr !== "0x0000000000000000000000000000000000000000") {
       try {
@@ -60,12 +61,35 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Caller is not the on-chain seller for this CID" }, { status: 403 });
         }
       } catch (chainErr: any) {
-        // If chain read fails (e.g. local dev), log and continue
         console.warn("Chain verification skipped:", chainErr.message);
       }
     }
 
-    storeKey(cid, secretKey, sellerAddress);
+    await storeKey(cid, secretKey, sellerAddress);
+
+    // ── Agent AI Integration (Double-Write) ──────────────────────────────────
+    // If the frontend provided metadata, instantly make it discoverable by the AI.
+    if (service && price !== undefined) {
+      try {
+        await prisma.listing.create({
+          data: {
+            txId: `market-${cid}`, // Ensure unique txId since it hasn't actually confirmed
+            sender: sellerAddress,
+            type: "account",
+            service,
+            price: Number(price),
+            seller: sellerAddress,
+            description: description || service,
+            ipfsHash: cid,
+            timestamp: Date.now(),
+            createdAt: new Date().toISOString()
+          }
+        });
+        console.log(`[register-key] Pushed to AI Discovery: ${service}`);
+      } catch (dbErr) {
+        console.error("[register-key] Failed to sync with AI Discovery:", dbErr);
+      }
+    }
 
     console.log(`[register-key] Key stored for CID: ${cid.slice(0, 20)}... seller: ${sellerAddress}`);
 

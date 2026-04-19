@@ -32,3 +32,11 @@ model Listing {
   timestamp     Float
   createdAt     String
 }
+
+model DecentralizedKey {
+  cid          String   @id
+  encryptedKey String   // The AES key, encrypted at rest
+  sellerWallet String
+  createdAt    DateTime @default(now())
+}
+

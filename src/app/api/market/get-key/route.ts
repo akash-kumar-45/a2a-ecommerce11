@@ -41,8 +41,8 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 1. Check key exists in store ────────────────────────────────────────
-    const entry = getKey(cid);
-    if (!entry) {
+    const secretKey = await getKey(cid);
+    if (!secretKey) {
       return NextResponse.json({ error: "Key not found — seller may not have registered it yet" }, { status: 404 });
     }
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     if (!marketAddr || marketAddr === "0x0000000000000000000000000000000000000000") {
       // Dev mode: no contract deployed yet, skip chain check
       console.warn("[get-key] No MARKET_ADDRESS set — skipping on-chain payment verification (DEV ONLY)");
-      return NextResponse.json({ secretKey: entry.secretKey });
+      return NextResponse.json({ secretKey: secretKey });
     }
 
     const provider = getProvider();
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 
     // ── 3. Payment confirmed — return the key ───────────────────────────────
     console.log(`[get-key] Key released: CID ${cid.slice(0, 20)}... → buyer ${buyer}`);
-    return NextResponse.json({ secretKey: entry.secretKey });
+    return NextResponse.json({ secretKey: secretKey });
 
   } catch (err: any) {
     console.error("[get-key] Error:", err.message);
