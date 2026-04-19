@@ -3,6 +3,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { BrowserProvider, JsonRpcSigner, ethers } from "ethers";
 
+declare global {
+  interface Window {
+    ethereum: any;
+  }
+}
+
 interface WalletContextState {
   address: string | null;
   signer: JsonRpcSigner | null;

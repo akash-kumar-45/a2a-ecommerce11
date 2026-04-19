@@ -38,11 +38,11 @@ export async function initAccounts(): Promise<any> {
   };
 }
 
-export function getStoredAccounts() {
+export function getStoredAccounts(): any {
   return null;
 }
 
-export function getSellerKeys() {
+export function getSellerKeys(): any {
   return null;
 }
 

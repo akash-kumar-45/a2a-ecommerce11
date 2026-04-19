@@ -451,11 +451,11 @@ export default function Home() {
   async function executeTransaction(deal: NegotiationSession) {
     setIsLoading(true);
     setSession(prev => ({ ...prev, phase: "executing" }));
-    // Prefer vault (auto-sign) > wallet > server-side
-    if (vaultBalance >= deal.finalPrice + 0.01) {
-      await executeWithVault(deal);
-    } else if (address && signer) {
+    // Prefer wallet (Metamask) > vault (auto-sign) > server-side
+    if (address && signer) {
       await executeWithWallet(deal);
+    } else if (vaultBalance >= deal.finalPrice + 0.01) {
+      await executeWithVault(deal);
     } else {
       await executeServerSide(deal);
     }
@@ -497,7 +497,7 @@ export default function Home() {
       }));
 
       addActions([mkAction(
-        `PAYMENT CONFIRMED (vault auto-sign)\nTX: ${payData.txId}\nRound: ${payData.confirmedRound}\nAmount: ${deal.finalPrice} ETH\nVault balance: ${payData.vaultBalance?.toFixed(4) ?? "?"} ETH\nhttps://sepolia.etherscan.io/tx/${payData.txId}`,
+        `PAYMENT CONFIRMED (vault auto-sign)\nTX: ${payData.txId}\nRound: ${payData.confirmedRound}\nAmount: ${deal.finalPrice} ETH\nVault balance: ${payData.vaultBalance?.toFixed(4) ?? "?"} ETH\n\n✅ Transaction confirmed! View transaction history on Etherscan:\nhttps://sepolia.etherscan.io/tx/${payData.txId}`,
         "transaction",
       )]);
 
@@ -656,7 +656,7 @@ export default function Home() {
       }));
 
       addActions([mkAction(
-        `ESCROW CONTRACT RESOLVED\nFunds Transferred to Seller: ${deal.finalPrice} ETH\nBlock: ${releaseReceipt.blockNumber}\nhttps://sepolia.etherscan.io/tx/${releaseTx.hash}`,
+        `ESCROW CONTRACT RESOLVED\nFunds Transferred to Seller: ${deal.finalPrice} ETH\nBlock: ${releaseReceipt.blockNumber}\n\n✅ Transaction confirmed! View transaction history on Etherscan:\nhttps://sepolia.etherscan.io/tx/${releaseTx.hash}`,
         "transaction",
       )]);
 
